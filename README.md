@@ -1,6 +1,5 @@
 # Unknown Area Navigation
 
-### Temporary Draft Repo! 
 
 ### Setup
 Basic Setup Instructions, feel free to skip if you've cloned repositories before.
