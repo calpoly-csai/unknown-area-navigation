@@ -1,0 +1,1 @@
+This Week’s Tasks:  Have your OpenCV detect the AprilTag, like in the image below (but obviously not as extensively as this image). Would also be awesome if you could start working towards the directional logic.
