@@ -5,8 +5,8 @@ Please put a header of this format at the top of each file. This will help with 
 ```python
 '''
 Author: Ivan Torriani
-Description: This file converts uses the Moondream multimodal model
-to convert .jpg images to json format.
+Description: This file uses the Moondream multimodal model
+to convert .jpg images to textual descriptions in json format.
 '''
 ```
 ### Setup
