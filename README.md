@@ -1,6 +1,12 @@
 # Unknown Area Navigation
 
-
+### File Header
+Please put a header of this format at the top of each file. This will help with the documentation process and make the final publication stronger.
+```
+Author: Ivan Torriani
+Description: This file converts uses the Moondream multimodal model
+to convert .jpg images to json format. 
+```
 ### Setup
 Basic Setup Instructions, feel free to skip if you've cloned repositories before.
 
