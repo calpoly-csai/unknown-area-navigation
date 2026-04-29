@@ -1,4 +1,9 @@
-import time
+'''
+Author: Zach Goldwyn
+
+Description: This file uses the YOLOv8s-worldv2 model
+to perform object recognition on input images.
+'''
 
 import cv2 #for computer vision stuff
 from ultralytics import YOLO
