@@ -1,0 +1,13 @@
+# Core CV / YOLO path
+opencv-python
+ultralytics
+
+# Shared image utilities
+numpy
+pillow
+
+# OWL path
+torch
+torchvision
+transformers
+git+https://github.com/NVIDIA-AI-IOT/nanoowl.git
