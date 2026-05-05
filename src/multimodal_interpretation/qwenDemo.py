@@ -4,7 +4,9 @@ Description: This file uses the Qwen-VL vision-language model
 to convert .jpg images to textual descriptions and traversability
 assessments in JSON format.
 
-Additional Notes: Extremely slow
+Reflection: Extremely slow. LIke moondream, llava,intern, we're 
+all gonna expect 10-30+ minutes per image. Not realistic on edge devices. 
+
 '''
 
 import argparse
