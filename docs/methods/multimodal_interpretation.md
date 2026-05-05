@@ -8,37 +8,61 @@ Even when an object is flagged as unknown, an autonomous agent still needs to ma
 
 ## Study Design
 
-This is an **exploratory, comparative study**. Four VLMs were each implemented as a standalone inference script and run against the same input images. Performance was assessed qualitatively, with a focus on output quality and practical feasibility for edge deployment. No ground-truth labels or quantitative metrics were used in this phase.
+This is an **exploratory, comparative study**. Models were each implemented as a standalone inference script and run against the same input images. Performance was assessed qualitatively, with a focus on output quality and practical feasibility for edge deployment. No ground-truth labels or quantitative metrics were used in this phase.
+
+The study covers two categories of approach:
+- **Local VLMs** — models loaded and run on-device via Hugging Face `transformers`
+- **Cloud API VLMs** — inference delegated to a remote API (no local GPU required)
 
 ---
 
 ## Task Definition
 
-Each VLM was given a single `.jpg` image and asked to perform two sequential inference tasks:
+Each model was given a single `.jpg` image and asked to produce:
 
-1. **Scene description**
-   > "Describe the scene in this image in detail."
+1. **Scene description** — a concise natural-language description of what is present
+2. **Traversability assessment** — is the scene safe and passable for an autonomous vehicle?
+3. **Justification** — a one-sentence explanation of the traversability decision
 
-2. **Traversability assessment**
-   > "Based on this image, is the scene safe and passable for an autonomous vehicle? Answer with only 'yes' or 'no'."
+### Local VLM prompts (sequential)
 
-The traversability response was parsed into a boolean: `True` if the response began with "yes" (case-insensitive), `False` otherwise. Ambiguous or non-yes responses default to `False`.
+The local models used two separate inference calls:
+
+> "Describe the scene in this image in detail."
+
+> "Based on this image, is the scene safe and passable for an autonomous vehicle? Answer with only 'yes' or 'no'."
+
+The traversability response was parsed into a boolean: `True` if the response began with "yes" (case-insensitive), `False` otherwise.
+
+### OpenAI API prompt (single call)
+
+The OpenAI demo uses a single structured prompt to reduce latency and cost:
+
+> "Analyse this image for an autonomous vehicle. Reply with a JSON object with exactly these fields:
+> - `description`: one concise sentence describing the scene
+> - `traversable`: true or false — is the scene safe and passable?
+> - `justification`: one sentence explaining the traversability decision"
 
 ### Output Format
-
-Results for each image were serialized to a co-located JSON file:
 
 ```json
 {
     "imageName": "<filename>.jpg",
-    "imageDescription": "<natural language scene description>",
-    "traversability": true | false
+    "imageDescription": "<concise scene description>",
+    "traversability": true | false,
+    "justification": "<one-sentence explanation>"
 }
 ```
+
+> Note: local VLM demos do not yet include the `justification` field.
 
 ---
 
 ## Models Evaluated
+
+### Local VLMs (Hugging Face)
+
+All local models were loaded via the Hugging Face `transformers` library in `float16` precision to reduce memory footprint.
 
 | Model | Identifier | Parameters | Prompt Format |
 |---|---|---|---|
@@ -47,11 +71,18 @@ Results for each image were serialized to a co-located JSON file:
 | **Moondream2** | `vikhyatk/moondream2` (rev. 2025-01-09) | ~1.9B | `.query(image, prompt)` API |
 | **InternVL2-2B** | `OpenGVLab/InternVL2-2B` | ~2B | `.chat(tokenizer, pixel_values, prompt, config)` API |
 
-All models were loaded via the Hugging Face `transformers` library in `float16` precision to reduce memory footprint.
+### Cloud API VLMs
+
+| Model | Provider | Script | Notes |
+|---|---|---|---|
+| **GPT-4o-mini** | OpenAI | `openaiDemo.py` | Single structured API call; returns description, traversability, and justification in one response |
+| **Gemini 2.0 Flash Lite** | Google | `geminiDemo.py` | Two sequential API calls for description and traversability |
 
 ---
 
 ## Inference Procedure
+
+### Local VLMs
 
 For each model and each input image:
 
@@ -65,6 +96,20 @@ For each model and each input image:
 5. Only newly generated tokens (beyond the input prompt length) were decoded to avoid echoing the prompt in the output.
 6. The traversability string was parsed to a boolean via `parse_traversability()`.
 7. Results were written to a JSON file co-located with the input image.
+
+### OpenAI API (GPT-4o-mini)
+
+1. The image was base64-encoded and passed inline as a `data:image/jpeg;base64,...` URL.
+2. A single chat completion request was made with a structured prompt requesting a JSON response containing `description`, `traversable`, and `justification`.
+3. The response was parsed directly as JSON — no separate traversability parsing step needed.
+4. Results were written to `json_outputs/<imageName>_output.json` relative to the input image directory.
+
+### Gemini API (Gemini 2.0 Flash Lite)
+
+1. The image was loaded with Pillow and passed directly to the `generate_content` call.
+2. Two sequential API calls were made — one for description, one for traversability.
+3. The traversability string was parsed to a boolean via `parse_traversability()`.
+4. Results were written to `json_outputs/<imageName>_output.json` relative to the input image directory.
 
 ---
 
@@ -102,17 +147,22 @@ Tests are located in `src/multimodal_interpretation/test_helpers.py` and run via
 | Component | Details |
 |---|---|
 | Input images | `.jpg` files; two test images (`test1.jpg`, `test2.jpg`) in `src/multimodal_interpretation/test_images/` |
-| Hardware | CPU inference (no GPU acceleration; testing edge-device feasibility) |
-| Frameworks | Hugging Face `transformers`, PyTorch, torchvision, Pillow |
-| Output | JSON per image, co-located with input file |
+| Hardware (local) | CPU inference (no GPU acceleration; testing edge-device feasibility) |
+| Hardware (API) | Cloud inference via OpenAI / Google APIs |
+| Frameworks | Hugging Face `transformers`, PyTorch, torchvision, Pillow, `openai`, `google-generativeai` |
+| Output | JSON per image, written to `json_outputs/` folder relative to the input image |
 
 ---
 
 ## Performance Observations
 
-All four VLMs exhibited inference times on the order of **10–30+ minutes per image** when run on CPU. This was observed consistently across all implementations and represents a critical feasibility constraint for real-time or near-real-time deployment on autonomous vehicle hardware. This finding motivates future work on:
+All four local VLMs exhibited inference times on the order of **10–30+ minutes per image** when run on CPU. This was observed consistently across all implementations and represents a critical feasibility constraint for real-time or near-real-time deployment on autonomous vehicle hardware.
 
-- Model quantization (e.g., INT8, GGUF)
+By contrast, the cloud API approaches (GPT-4o-mini, Gemini 2.0 Flash Lite) return results in **2–5 seconds per image**, with no local GPU or model loading required. This makes them significantly more practical for prototyping and testing, though they introduce a dependency on network connectivity and third-party API availability.
+
+These findings motivate future work on:
+
+- Model quantization (e.g., INT8, GGUF) for faster local inference
 - Hardware acceleration (GPU, NPU, or dedicated inference chips)
 - Lighter-weight VLM alternatives designed for edge deployment
 
