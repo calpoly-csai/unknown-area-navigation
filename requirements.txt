@@ -10,6 +10,9 @@ pillow
 google-generativeai==0.8.3
 python-dotenv==1.0.1
 
+# OpenAI API
+openai==1.82.0
+
 # OWL path
 torch
 torchvision

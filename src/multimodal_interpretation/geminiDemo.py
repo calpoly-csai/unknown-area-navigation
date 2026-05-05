@@ -89,7 +89,7 @@ def main():
     # ------------------------------------------------------------------ #
     api_key = _load_api_key()
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("gemini-2.0-flash-lite")
 
     # ------------------------------------------------------------------ #
     # Scene description generation                                         #
@@ -122,7 +122,11 @@ def main():
     # JSON output                                                          #
     # ------------------------------------------------------------------ #
     output = build_output(image_path, description, traversability)
-    output_path = get_output_path(image_path)
+
+    output_dir = os.path.join(os.path.dirname(os.path.abspath(image_path)), "json_outputs")
+    os.makedirs(output_dir, exist_ok=True)
+    base_name = os.path.splitext(os.path.basename(image_path))[0]
+    output_path = os.path.join(output_dir, f"{base_name}_output.json")
 
     try:
         with open(output_path, "w") as f:
