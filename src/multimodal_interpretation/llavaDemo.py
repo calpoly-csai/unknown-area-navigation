@@ -4,6 +4,9 @@ Model: llava-hf/llava-1.5-7b-hf
 Description: This file uses the LLaVA-1.5-7B vision-language model
 to convert .jpg images to textual descriptions and traversability
 assessments in JSON format.
+Reflection: Extremely slow. LIke moondream, llava,intern, we're 
+all gonna expect 10-30+ minutes per image. Not realistic on edge devices. 
+
 '''
 
 import argparse

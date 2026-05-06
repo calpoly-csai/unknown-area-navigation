@@ -4,6 +4,9 @@ Model: vikhyatk/moondream2 (revision 2025-01-09)
 Description: This file uses the Moondream2 vision-language model
 to convert .jpg images to textual descriptions and traversability
 assessments in JSON format.
+Reflection: Extremely slow. LIke moondream, llava,intern, we're 
+all gonna expect 10-30+ minutes per image. Not realistic on edge devices. 
+
 '''
 
 import argparse

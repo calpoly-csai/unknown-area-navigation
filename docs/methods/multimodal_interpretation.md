@@ -76,7 +76,7 @@ All local models were loaded via the Hugging Face `transformers` library in `flo
 | Model | Provider | Script | Notes |
 |---|---|---|---|
 | **GPT-4o-mini** | OpenAI | `openaiDemo.py` | Single structured API call; returns description, traversability, and justification in one response |
-| **Gemini 2.0 Flash Lite** | Google | `geminiDemo.py` | Two sequential API calls for description and traversability |
+| **Gemini 2.0 Flash** | Google | `geminiDemo.py` | Two sequential API calls for description and traversability; free tier supports 15 RPM with no credit card required |
 
 ---
 

@@ -12,6 +12,8 @@ Requirements:
     pip install openai pillow python-dotenv
     OPENAI_API_KEY must be set in a .env file at the project root (or as
     an environment variable).
+
+Reflection: Much greater performance, 2-5 seconds. 
 '''
 
 import argparse
