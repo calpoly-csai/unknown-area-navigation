@@ -172,6 +172,18 @@ def main():
     if not cap.isOpened():
         raise RuntimeError("Could not open webcam (device 0).")
 
+    # Request a full-size resolution — camera will use the closest it supports
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
+
+    actual_w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    actual_h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    print(f"Camera resolution: {actual_w}x{actual_h}")
+
+    # Make the display window resizable so you can drag it larger if needed
+    cv2.namedWindow("mainDemo1 — YOLO low-confidence + Gemini", cv2.WINDOW_NORMAL)
+    cv2.resizeWindow("mainDemo1 — YOLO low-confidence + Gemini", actual_w, actual_h)
+
     print("mainDemo1 running — press ESC to quit.")
     print(f"Unknown-object threshold: confidence < {CONFIDENCE_BENCHMARK}%")
     print(f"Gemini cooldown: {GEMINI_COOLDOWN_SECONDS}s between queries")
