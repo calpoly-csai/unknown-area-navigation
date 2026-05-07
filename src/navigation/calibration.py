@@ -17,8 +17,11 @@ objpoints = []
 imgpoints = []
 
 # Folder containing calibration images of the checkerboard pattern
-images = glob.glob("CSAI\\Navigation\\calib_images\\*.jpg")
+images = glob.glob("src/navigation/calib_images/*.jpg")
 print("Found", len(images), "images for calibration.")
+if len(images) == 0:
+    print("No images found. Add checkerboard photos to src/navigation/calib_images/ and re-run.")
+    exit()
 
 for fname in images:
     print("Processing", fname)
