@@ -1,0 +1,65 @@
+[
+    {
+        "imageName": "test1.jpg",
+        "imageDescription": "A person leaning over a yellow warning sign with pedestrian crossing symbols, with additional pedestrian crossing signs nearby.",
+        "traversability": false,
+        "justification": "The scene contains pedestrian warning signs indicating the need for caution, and the person interacting with the sign increases the potential for unexpected movements, making it unsafe to proceed.",
+        "timeTaken": 1.395
+    },
+    {
+        "imageName": "test2.jpg",
+        "imageDescription": "A worker wearing a safety vest and helmet is holding a stop sign at the side of a road, with construction equipment and vehicles nearby.",
+        "traversability": false,
+        "justification": "The presence of the worker holding a stop sign indicates that the vehicle must stop and cannot proceed safely at this moment.",
+        "timeTaken": 1.99
+    },
+    {
+        "imageName": "test3.jpg",
+        "imageDescription": "A clear rural road extending into the horizon on a sunny day with shadows cast by two people.",
+        "traversability": true,
+        "justification": "The road appears continuous, unobstructed, and in good condition, with no visible hazards or obstacles.",
+        "timeTaken": 2.239
+    },
+    {
+        "imageName": "test5.jpg",
+        "imageDescription": "A fallen tree blocks a narrow, forested road, obstructing passage.",
+        "traversability": false,
+        "justification": "The fallen tree completely obstructs the road, rendering it impassable for an autonomous vehicle.",
+        "timeTaken": 3.897
+    },
+    {
+        "imageName": "test6.jpeg",
+        "imageDescription": "A herd of cows is blocking a two-lane road with power lines and a vehicle in the background.",
+        "traversability": false,
+        "justification": "The road is obstructed by cows, making it unsafe and impossible to pass without intervention.",
+        "timeTaken": 1.227
+    },
+    {
+        "imageName": "test7.jpeg",
+        "imageDescription": "A bridge covered in colorful graffiti with greenery in the background.",
+        "traversability": true,
+        "justification": "The bridge appears intact and unobstructed, with no visible hazards blocking the path.",
+        "timeTaken": 0.919
+    },
+    {
+        "imageName": "test8.jpeg",
+        "imageDescription": "A road with muddy and potentially flooded sections surrounded by trees on both sides.",
+        "traversability": false,
+        "justification": "The presence of mud and water on the road suggests it may be unsafe and impassable for an autonomous vehicle.",
+        "timeTaken": 0.84
+    },
+    {
+        "imageName": "test9.jpg",
+        "imageDescription": "A young woman is standing on the side of a winding mountain road, hitchhiking with her thumb up, while cars are visible in the background.",
+        "traversability": false,
+        "justification": "The woman is standing on the road edge in a position that could interfere with passing vehicles, making it unsafe for autonomous traversal.",
+        "timeTaken": 1.31
+    },
+    {
+        "imageName": "test10.jpeg",
+        "imageDescription": "A small aircraft is crashed on a two-lane road with vehicles driving around it near a forested area.",
+        "traversability": false,
+        "justification": "The aircraft obstructs the road, making it unsafe and impassable for autonomous vehicles.",
+        "timeTaken": 3.232
+    }
+]

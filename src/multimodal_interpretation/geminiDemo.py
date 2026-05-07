@@ -1,15 +1,23 @@
 '''
 Author: Ivan Torriani
-Model: gemini-2.0-flash (Google Gemini API)
+Model: gemini-2.5-flash-lite (Google Gemini API)
 Description: This file uses the Gemini vision-language model via the
-Google Generative AI API to convert .jpg images to textual descriptions
-and traversability assessments in JSON format.
-Reflection: Unlike the local HuggingFace models (LLaVA, Moondream, InternVL,
-Qwen), this runs inference in the cloud so it is dramatically faster —
-no local GPU required. Ideal for edge devices that can reach the internet.
+Google Generative AI API to analyse all test images (test1–test10) in the
+test_images folder and outputs one JSON file per image containing:
+  - imageName
+  - imageDescription
+  - traversability
+  - justification
+  - timeTaken  (seconds for the API call)
+
+A summary JSON is also written with totalTime for the full batch.
+
+gemini-2.5-flash-lite is currently Google's cheapest and fastest model at
+$0.10/1M input tokens and $0.40/1M output tokens. It also has a free tier
+with up to 1,000 requests/day — ideal for research on a budget.
 
 Usage:
-    python geminiDemo.py <path_to_image.jpg>
+    python geminiDemo.py
 
 Requirements:
     pip install google-generativeai pillow python-dotenv
@@ -17,28 +25,32 @@ Requirements:
     environment variable).
 '''
 
-import argparse
+import json
 import os
 import sys
-import json
+import time
 from pathlib import Path
 
 from PIL import Image
 from dotenv import load_dotenv
 import google.generativeai as genai
 
-from helpers import parse_traversability, build_output, get_output_path
+from helpers import build_output
 
 
-# Load GEMINI_API_KEY from the nearest .env file walking up from this script
+# ------------------------------------------------------------------ #
+# Constants                                                            #
+# ------------------------------------------------------------------ #
+SCRIPT_DIR = Path(__file__).resolve().parent
+TEST_IMAGES_DIR = SCRIPT_DIR / "test_images"
+OUTPUT_DIR = TEST_IMAGES_DIR / "json_outputs"
+IMAGE_NAMES = [f"test{i}" for i in range(1, 11)]
+EXTENSIONS = [".jpg", ".jpeg"]
+
+
 def _load_api_key() -> str:
-    """
-    Walk up the directory tree from this file looking for a .env that
-    contains GEMINI_API_KEY, then return the key value.
-    Raises SystemExit if the key cannot be found.
-    """
-    search_dir = Path(__file__).resolve().parent
-    for directory in [search_dir, *search_dir.parents]:
+    """Walk up the directory tree looking for a .env with GEMINI_API_KEY."""
+    for directory in [SCRIPT_DIR, *SCRIPT_DIR.parents]:
         env_file = directory / ".env"
         if env_file.exists():
             load_dotenv(dotenv_path=env_file, override=False)
@@ -54,89 +66,92 @@ def _load_api_key() -> str:
     return api_key
 
 
-def main():
-    # ------------------------------------------------------------------ #
-    # CLI argument parsing & input validation                             #
-    # ------------------------------------------------------------------ #
-    parser = argparse.ArgumentParser(
-        description="Run Gemini scene analysis on a JPG image."
-    )
-    parser.add_argument("image_path", help="Path to the input .jpg image file.")
-    args = parser.parse_args()
+def find_image(name: str) -> Path | None:
+    """Return the path for a test image, trying each supported extension."""
+    for ext in EXTENSIONS:
+        candidate = TEST_IMAGES_DIR / f"{name}{ext}"
+        if candidate.exists():
+            return candidate
+    return None
 
-    image_path = args.image_path
 
-    if not os.path.exists(image_path):
-        print(f"Error: File not found: {image_path}")
-        sys.exit(1)
-
-    _, ext = os.path.splitext(image_path)
-    if ext.lower() != ".jpg":
-        print(f"Error: Expected a .jpg file, got '{ext}' for: {image_path}")
-        sys.exit(1)
-
-    # ------------------------------------------------------------------ #
-    # Image loading                                                        #
-    # ------------------------------------------------------------------ #
+def analyse_image(model: genai.GenerativeModel, image_path: Path) -> dict:
+    """
+    Run a single Gemini call for the given image.
+    Returns the output dict (imageName, imageDescription, traversability,
+    justification, timeTaken).
+    """
     try:
         image = Image.open(image_path).convert("RGB")
-    except (IOError, Image.UnidentifiedImageError) as e:
-        print(f"Error: Could not open image '{image_path}': {e}")
-        sys.exit(1)
+    except Exception as e:
+        raise RuntimeError(f"Could not open image '{image_path}': {e}")
 
-    # ------------------------------------------------------------------ #
-    # Gemini client setup                                                  #
-    # ------------------------------------------------------------------ #
+    prompt = (
+        "Analyse this image for an autonomous vehicle. "
+        "Reply with a JSON object with exactly these fields:\n"
+        "- \"description\": one concise sentence describing the scene\n"
+        "- \"traversable\": true or false — is the scene safe and passable?\n"
+        "- \"justification\": one sentence explaining the traversability decision\n"
+        "Return only the raw JSON, no markdown fences."
+    )
+
+    start = time.perf_counter()
+    response = model.generate_content([prompt, image])
+    elapsed = time.perf_counter() - start
+
+    raw = response.text.strip()
+    # Strip markdown code fences if the model adds them anyway
+    if raw.startswith("```"):
+        raw = raw.split("```")[1]
+        if raw.startswith("json"):
+            raw = raw[4:]
+        raw = raw.strip()
+
+    parsed = json.loads(raw)
+
+    return build_output(
+        image_path=str(image_path),
+        description=parsed["description"],
+        traversability=bool(parsed["traversable"]),
+        justification=parsed["justification"],
+        time_taken=elapsed,
+    )
+
+
+def main():
     api_key = _load_api_key()
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash-lite")
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # ------------------------------------------------------------------ #
-    # Scene description generation                                         #
-    # ------------------------------------------------------------------ #
-    try:
-        description_prompt = "Describe the scene in this image in detail."
-        response = model.generate_content([description_prompt, image])
-        description = response.text.strip()
-    except Exception as e:
-        print(f"Error: Gemini API call failed during description generation: {e}")
-        sys.exit(1)
+    batch_start = time.perf_counter()
+    results = []
 
-    # ------------------------------------------------------------------ #
-    # Traversability assessment                                            #
-    # ------------------------------------------------------------------ #
-    try:
-        traversability_prompt = (
-            "Based on this image, is the scene safe and passable for an autonomous "
-            "vehicle? Answer with only 'yes' or 'no'."
-        )
-        response = model.generate_content([traversability_prompt, image])
-        traversability_response = response.text.strip()
-    except Exception as e:
-        print(f"Error: Gemini API call failed during traversability assessment: {e}")
-        sys.exit(1)
+    for name in IMAGE_NAMES:
+        image_path = find_image(name)
+        if image_path is None:
+            print(f"  Skipping {name}: no image found in {TEST_IMAGES_DIR}")
+            continue
 
-    traversability = parse_traversability(traversability_response)
+        print(f"  Processing {image_path.name} ...", end=" ", flush=True)
+        try:
+            output = analyse_image(model, image_path)
+        except Exception as e:
+            print(f"FAILED — {e}")
+            continue
 
-    # ------------------------------------------------------------------ #
-    # JSON output                                                          #
-    # ------------------------------------------------------------------ #
-    output = build_output(image_path, description, traversability)
-    output["model"] = "gemini-2.0-flash"
+        print(f"done ({output['timeTaken']:.2f}s)")
+        results.append(output)
 
-    output_dir = os.path.join(os.path.dirname(os.path.abspath(image_path)), "json_outputs")
-    os.makedirs(output_dir, exist_ok=True)
-    base_name = os.path.splitext(os.path.basename(image_path))[0]
-    output_path = os.path.join(output_dir, f"gemini_{base_name}_output.json")
+    total_time = round(time.perf_counter() - batch_start, 3)
 
-    try:
-        with open(output_path, "w") as f:
-            json.dump(output, f, indent=4)
-    except Exception as e:
-        print(f"Error: Failed to write output file: {e}")
-        sys.exit(1)
+    # Write consolidated output file
+    out_path = OUTPUT_DIR / "gemini_test.json"
+    with open(out_path, "w") as f:
+        json.dump(results, f, indent=4)
 
-    print(f"Output written to: {output_path}")
+    print(f"\nBatch complete: {len(results)} images in {total_time:.2f}s")
+    print(f"Results written to: {out_path}")
 
 
 if __name__ == "__main__":
