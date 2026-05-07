@@ -47,7 +47,9 @@ PROJECT_ROOT = SCRIPT_DIR.parent  # one level up from src/
 
 YOLO_MODEL_PATH = SCRIPT_DIR / "unknown_object_detection" / "yolov8s-worldv2.pt"
 
-CONFIDENCE_BENCHMARK = 50  # percent — below this → unknown object
+CONFIDENCE_BENCHMARK = 50      # percent — below this → candidate unknown
+MIN_DETECTION_CONF = 25        # percent — ignore detections below this entirely (noise filter)
+UNKNOWN_PERSIST_FRAMES = 8     # object must be unknown for this many consecutive frames to trigger Gemini
 
 # How many seconds to wait between Gemini API calls (avoid rate-limiting)
 GEMINI_COOLDOWN_SECONDS = 5.0
@@ -190,6 +192,7 @@ def main():
 
     last_gemini_time = 0.0
     last_verdict: dict | None = None
+    unknown_streak = 0  # consecutive frames with an unknown detection
 
     while True:
         ret, frame = cap.read()
@@ -206,9 +209,14 @@ def main():
             for box in result.boxes:
                 cls_id = int(box.cls[0])
                 conf = float(box.conf[0])
+                conf_pct = conf * 100
+
+                # Ignore very low-confidence detections entirely — they're noise
+                if conf_pct < MIN_DETECTION_CONF:
+                    continue
+
                 label = result.names[cls_id]
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
-                conf_pct = conf * 100
 
                 if conf_pct >= CONFIDENCE_BENCHMARK:
                     # Known object — blue box
@@ -220,23 +228,37 @@ def main():
                         OVERLAY_FONT, LABEL_SCALE, COLOR_KNOWN, LABEL_THICKNESS,
                     )
                 else:
-                    # Unknown object — red box
+                    # Low-confidence detection — candidate unknown, draw in orange
                     unknown_found = True
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), COLOR_UNKNOWN, 2)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), COLOR_PENDING, 2)
                     cv2.putText(
                         frame,
-                        "UNKNOWN OBJECT",
+                        f"? {label} {conf_pct:.1f}%",
                         (x1, max(20, y1 - 10)),
-                        OVERLAY_FONT, LABEL_SCALE, COLOR_UNKNOWN, LABEL_THICKNESS,
+                        OVERLAY_FONT, LABEL_SCALE, COLOR_PENDING, LABEL_THICKNESS,
                     )
-                    # Keep a snapshot of the frame for Gemini (last unknown wins)
                     unknown_frame_snapshot = frame.copy()
 
-        # Query Gemini if an unknown object was found and cooldown has elapsed
+        # Update streak counter
+        if unknown_found:
+            unknown_streak += 1
+        else:
+            unknown_streak = 0
+
+        # Only treat as confirmed unknown after persisting for enough frames
+        confirmed_unknown = unknown_streak >= UNKNOWN_PERSIST_FRAMES
+        if confirmed_unknown and unknown_frame_snapshot is not None:
+            # Redraw the box in red now that it's confirmed
+            cv2.putText(
+                frame, "UNKNOWN OBJECT",
+                (12, 80), OVERLAY_FONT, LABEL_SCALE, COLOR_UNKNOWN, LABEL_THICKNESS,
+            )
+
+        # Query Gemini if confirmed unknown and cooldown has elapsed
         now = time.perf_counter()
         cooldown_remaining = max(0.0, GEMINI_COOLDOWN_SECONDS - (now - last_gemini_time))
 
-        if unknown_found and cooldown_remaining == 0.0 and unknown_frame_snapshot is not None:
+        if confirmed_unknown and cooldown_remaining == 0.0 and unknown_frame_snapshot is not None:
             draw_status_line(frame, "Querying Gemini...", COLOR_PENDING, 0)
             cv2.imshow("mainDemo1 — YOLO low-confidence + Gemini", frame)
             cv2.waitKey(1)
@@ -253,10 +275,17 @@ def main():
                 print(f"[Gemini] query failed: {e}")
 
         # Status overlay (top-left)
-        status_color = COLOR_UNKNOWN if unknown_found else COLOR_KNOWN
-        status_text = "Unknown object detected!" if unknown_found else "No unknown objects"
+        if confirmed_unknown:
+            status_color = COLOR_UNKNOWN
+            status_text = f"CONFIRMED UNKNOWN ({unknown_streak} frames)"
+        elif unknown_found:
+            status_color = COLOR_PENDING
+            status_text = f"Candidate unknown... ({unknown_streak}/{UNKNOWN_PERSIST_FRAMES} frames)"
+        else:
+            status_color = COLOR_KNOWN
+            status_text = "No unknown objects"
         draw_status_line(frame, status_text, status_color, 0)
-        draw_status_line(frame, f"Confidence threshold: {CONFIDENCE_BENCHMARK}%", (200, 200, 200), 1)
+        draw_status_line(frame, f"Confidence threshold: {CONFIDENCE_BENCHMARK}% | Min detection: {MIN_DETECTION_CONF}%", (200, 200, 200), 1)
 
         # Verdict banner (bottom)
         draw_verdict_banner(frame, last_verdict, cooldown_remaining)
