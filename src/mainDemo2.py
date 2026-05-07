@@ -70,6 +70,15 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 # How many seconds to wait between Gemini API calls
 GEMINI_COOLDOWN_SECONDS = 5.0
 
+# Scrutiny thresholds — tune these to adjust sensitivity
+# Hard unknown (no YOLO match at all) must persist this many frames
+UNKNOWN_PERSIST_FRAMES = 8
+# Weak match (low-confidence YOLO) must persist longer before triggering Gemini
+WEAK_PERSIST_FRAMES = 15
+# Nano-Owl score below this is ignored entirely (noise filter)
+# The imported NANO_OWL_THRESHOLD is 0.08 — we override it here to be stricter
+NANO_OWL_MIN_SCORE = 0.18
+
 OVERLAY_FONT = cv2.FONT_HERSHEY_SIMPLEX
 STATUS_SCALE = 0.55
 STATUS_THICKNESS = 1
@@ -205,6 +214,8 @@ def main():
 
     last_gemini_time = 0.0
     last_verdict: dict | None = None
+    unknown_streak = 0   # consecutive frames with a hard unknown (no YOLO match)
+    weak_streak = 0      # consecutive frames with only weak YOLO matches
 
     while True:
         ret, frame = cap.read()
@@ -233,6 +244,10 @@ def main():
         unknown_frame_snapshot = None
 
         for nano_det in nano_detections:
+            # Filter out low-scoring Nano-Owl detections — they're noise
+            if nano_det.score < NANO_OWL_MIN_SCORE:
+                continue
+
             # Find best overlapping YOLO detection
             best_match = None
             best_iou = 0.0
@@ -252,27 +267,26 @@ def main():
                     best_match = yolo_det
 
             if best_match is None or best_iou < IOU_MATCH_THRESHOLD:
-                # No YOLO match → unknown
+                # No YOLO match → hard unknown candidate
                 unknown_count += 1
                 draw_detection(frame, nano_det, COLOR_UNKNOWN)
                 cv2.putText(
-                    frame, "unknown candidate",
+                    frame, f"? no YOLO match (score {nano_det.score:.2f})",
                     (nano_det.box[0], min(frame.shape[0] - 10, nano_det.box[3] + 20)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.55, COLOR_UNKNOWN, 2,
                 )
                 unknown_frame_snapshot = frame.copy()
 
             elif best_match.score < YOLO_WORLD_LOW_CONF_THRESHOLD:
-                # Weak YOLO match → uncertain
+                # Weak YOLO match → uncertain candidate
                 weak_match_count += 1
                 draw_detection(frame, nano_det, COLOR_WEAK)
                 cv2.putText(
                     frame,
-                    f"weak YOLO match: {best_match.label} {best_match.score:.2f}",
+                    f"? weak: {best_match.label} {best_match.score:.2f}",
                     (nano_det.box[0], min(frame.shape[0] - 10, nano_det.box[3] + 20)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_WEAK, 2,
                 )
-                # Treat weak matches as candidates too
                 if unknown_frame_snapshot is None:
                     unknown_frame_snapshot = frame.copy()
 
@@ -287,12 +301,29 @@ def main():
                     cv2.FONT_HERSHEY_SIMPLEX, 0.5, COLOR_KNOWN, 2,
                 )
 
-        # Query Gemini if an unknown/weak object was found and cooldown elapsed
+        # Update streak counters
+        if unknown_count > 0:
+            unknown_streak += 1
+        else:
+            unknown_streak = 0
+
+        if weak_match_count > 0 and unknown_count == 0:
+            weak_streak += 1
+        else:
+            weak_streak = 0
+
+        # Confirmed unknown: hard unknown persisted long enough
+        confirmed_unknown = unknown_streak >= UNKNOWN_PERSIST_FRAMES
+        # Confirmed weak: only weak matches but they've persisted even longer
+        confirmed_weak = weak_streak >= WEAK_PERSIST_FRAMES
+
+        should_query = (confirmed_unknown or confirmed_weak) and unknown_frame_snapshot is not None
+
+        # Query Gemini if confirmed and cooldown elapsed
         now = time.perf_counter()
         cooldown_remaining = max(0.0, GEMINI_COOLDOWN_SECONDS - (now - last_gemini_time))
-        unknown_detected = (unknown_count + weak_match_count) > 0
 
-        if unknown_detected and cooldown_remaining == 0.0 and unknown_frame_snapshot is not None:
+        if should_query and cooldown_remaining == 0.0:
             draw_status(frame, "Querying Gemini...", COLOR_PENDING, 4)
             cv2.imshow("mainDemo2 — Nano-Owl/YOLO consensus + Gemini", frame)
             cv2.waitKey(1)
@@ -309,10 +340,15 @@ def main():
                 print(f"[Gemini] query failed: {e}")
 
         # Status overlay (top-left) — mirrors nano_owl_vs_yolo_world style
-        draw_status(frame, f"Nano-Owl prompt: {nano_prompt_used}", COLOR_KNOWN, 0)
+        draw_status(frame, f"Nano-Owl prompt: {nano_prompt_used} | min score: {NANO_OWL_MIN_SCORE}", COLOR_KNOWN, 0)
         draw_status(frame, f"Nano-Owl refresh: every {NANO_OWL_FRAME_INTERVAL} frames", (255, 255, 255), 1)
-        draw_status(frame, f"Matched: {matched_count} | Weak: {weak_match_count}", COLOR_YOLO, 2)
-        draw_status(frame, f"Unknown candidates: {unknown_count}", COLOR_UNKNOWN, 3)
+        draw_status(frame, f"Matched: {matched_count} | Weak: {weak_match_count} (streak {weak_streak}/{WEAK_PERSIST_FRAMES})", COLOR_YOLO, 2)
+        if confirmed_unknown:
+            draw_status(frame, f"CONFIRMED UNKNOWN ({unknown_streak} frames)", COLOR_UNKNOWN, 3)
+        elif unknown_count > 0:
+            draw_status(frame, f"Unknown candidate... ({unknown_streak}/{UNKNOWN_PERSIST_FRAMES} frames)", COLOR_UNKNOWN, 3)
+        else:
+            draw_status(frame, f"Unknown candidates: 0", COLOR_KNOWN, 3)
 
         # Verdict banner (bottom)
         draw_verdict_banner(frame, last_verdict, cooldown_remaining)
