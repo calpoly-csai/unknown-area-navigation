@@ -6,6 +6,7 @@ This folder contains the methods documentation for each subsystem of the autonom
 |---|---|
 | [`unknown_object_detection.md`](./unknown_object_detection.md) | Detecting objects a model cannot confidently classify |
 | [`multimodal_interpretation.md`](./multimodal_interpretation.md) | VLM-based scene description and traversability assessment |
+| [`navigation.md`](./navigation.md) | AprilTag-based pose estimation and directional movement control |
 
 ---
 
@@ -15,5 +16,6 @@ This project develops a modular pipeline to supplement autonomous navigation in 
 
 1. **Unknown Object Detection** — identify when a model is uncertain about what it sees and flag the object rather than silently mislabeling it.
 2. **Multimodal Scene Interpretation** — use a vision-language model to generate a natural-language description of the scene and a binary traversability judgment.
+3. **Navigation** — use AprilTag fiducial markers as visual landmarks to estimate 3D pose and issue directional movement commands in real time.
 
-Both subsystems are exploratory prototypes evaluated on live webcam input and researcher-supplied test images.
+All three subsystems are exploratory prototypes evaluated on live webcam input and researcher-supplied test images.
