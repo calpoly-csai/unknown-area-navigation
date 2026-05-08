@@ -93,7 +93,59 @@ A standard YOLO model was run on a live webcam feed with no unknown-object logic
 
 ---
 
-## Study Materials
+## Approach 4 — Frame-to-Frame Colour Histogram Comparison
+
+**Implementation:** `src/unknown_object_detection/ColorDetection.py`
+
+### Overview
+
+This approach detects scene changes by comparing the colour distribution of consecutive webcam frames using histogram analysis. Rather than identifying specific objects, it flags any significant shift in the overall colour composition of the frame — which can indicate that a new object has entered the scene or that the environment has changed.
+
+### Method
+
+Each frame is converted into a 3D colour histogram over the BGR channels, quantised into 8 bins per channel (8×8×8 = 512 total bins). The histogram is L1-normalised and flattened to a 512-element vector. The **Bhattacharyya distance** between the current frame's histogram and the previous frame's histogram is computed using `cv2.compareHist`.
+
+The Bhattacharyya distance ranges from 0 (identical distributions) to 1 (completely disjoint distributions). A threshold of **0.1** was chosen empirically — values above this indicate a meaningful colour change in the scene.
+
+When a change is detected, the text `"Color Changed"` is overlaid on the stream in red for 0.5 seconds.
+
+### Pipeline
+
+```
+Frame t-1 → BGR histogram (8×8×8) → normalise → flatten → previouscolor
+Frame t   → BGR histogram (8×8×8) → normalise → flatten → currentcolor
+                                                               │
+                              Bhattacharyya distance(previouscolor, currentcolor)
+                                                               │
+                                              diff > 0.1?
+                                               │         │
+                                             Yes         No
+                                               │
+                              Display "Color Changed" for 0.5s
+                              previouscolor ← currentcolor
+```
+
+### Key Parameters
+
+| Parameter | Value | Description |
+|-----------|-------|-------------|
+| Histogram bins | 8 per channel | Coarse quantisation — robust to minor lighting variation |
+| Channels | BGR (0, 1, 2) | Full colour comparison, no channel dropped |
+| Comparison metric | `HISTCMP_BHATTACHARYYA` | Measures overlap between distributions; 0 = identical, 1 = disjoint |
+| Change threshold | 0.1 | Empirically chosen; values above this flag a colour change |
+| Alert duration | 0.5s | How long the on-screen text persists after a change is detected |
+
+### Rationale
+
+Colour histogram comparison is a lightweight, model-free method for detecting scene changes. It requires no GPU, no pretrained weights, and runs in real time on any hardware. The Bhattacharyya distance is well-suited for this task because it measures the statistical overlap between two distributions rather than pixel-level differences, making it more robust to minor lighting shifts and camera noise.
+
+The primary limitation is that it is not object-aware — it cannot distinguish between a new object entering the frame and a change in ambient lighting, camera movement, or background variation. It is best understood as a coarse change-detection signal rather than a true unknown-object detector.
+
+### Relationship to Other Approaches
+
+This script was developed as an early exploratory prototype. It does not identify *what* changed, only *that* something changed. The confidence-thresholded YOLO approach (Approach 1) and the dual-model consensus approach (Approach 2) were developed subsequently to provide object-level detection and classification rather than scene-level change detection.
+
+A potential integration path would be to use colour histogram change as a fast pre-filter: only invoke the more expensive YOLO or NanoOWL pipelines when a colour change is detected, reducing unnecessary inference on static scenes.
 
 | Component | Details |
 |---|---|

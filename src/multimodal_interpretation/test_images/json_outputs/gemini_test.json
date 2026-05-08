@@ -2,7 +2,7 @@
     {
         "imageName": "test1.jpg",
         "imageDescription": "A person in a black morph suit is standing next to a large, yellow diamond-shaped sign that mimics a pedestrian crossing sign.",
-        "traversability": true,
+        "traversability": true, 
         "justification": "The scene depicts a clear path, and while unusual, the presence of a person and signage does not obstruct the road or present an immediate hazard.",
         "timeTaken": 1.359
     },
