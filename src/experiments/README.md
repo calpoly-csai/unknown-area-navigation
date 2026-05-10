@@ -9,15 +9,15 @@ All experiments in this folder follow the same abstract pipeline. What varies be
 │  Stage 1 — Capture                                  │
 │                                                     │
 │  Open webcam stream via OpenCV                      │
-│  Read frame continuously in a loop                  │
+│                                                     |
 └───────────────────────┬─────────────────────────────┘
                         │
                         ▼
 ┌─────────────────────────────────────────────────────┐
 │  Stage 2 — Unknown Object Detection                 │
 │                                                     │
-│  Run detection method on current frame              │
-│  Classify each detected region as:                  │
+│  Run detection method on the stream                 │
+│  Classify objects as                                │
 │    - Known   → no further action                    │
 │    - Unknown → flag frame, proceed to Stage 3       │
 └───────────────────────┬─────────────────────────────┘
@@ -32,8 +32,9 @@ All experiments in this folder follow the same abstract pipeline. What varies be
                │  │                                    │
                │  │  Detection models sometimes flag   │
                │  │  an unknown for less than a second │
-               │  │  before dropping it;  this is a    │
-               │  │  glitch &not a real detection.     │
+               │  │  before dropping it;  this is      |
+               │  |  likely a glitch and not an        |
+               │  │  actual detection.                 |
                │  │  The persistence gate filters      │
                │  │  these out by requiring the        │
                │  │  unknown to appear consistently    │
