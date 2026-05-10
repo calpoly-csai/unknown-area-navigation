@@ -9,7 +9,9 @@ All experiments in this folder follow the same abstract pipeline. What varies be
 │  Stage 1 — Capture                                  │
 │                                                     │
 │  Open webcam stream via OpenCV                      │
-│                                                     |
+│  Stages 2–5 run continuously in a loop              │
+│  for every frame until the user exits               │
+│  (e.g. presses ESC or q)                            │
 └───────────────────────┬─────────────────────────────┘
                         │
                         ▼
@@ -67,7 +69,12 @@ All experiments in this folder follow the same abstract pipeline. What varies be
 │  Show traversability verdict + justification        │
 │  Render annotated frame to screen                   │
 └───────────────────────┬─────────────────────────────┘
-
+                        │
+                  Exit key pressed?
+                   │           │
+                  No          Yes
+                   │           │
+                   └─── loop   └──► Release camera, exit
 ```
 
 
