@@ -32,15 +32,15 @@ All experiments in this folder follow the same abstract pipeline. What varies be
                │  │                                    │
                │  │  Detection models sometimes flag   │
                │  │  an unknown for less than a second │
-               │  │  before dropping it — this is a    │
-               │  │  glitch, not a real detection.     │
+               │  │  before dropping it;  this is a    │
+               │  │  glitch &not a real detection.     │
                │  │  The persistence gate filters      │
                │  │  these out by requiring the        │
                │  │  unknown to appear consistently    │
-               │  │  across N consecutive frames       │
-               │  │  before it is treated as real.     │
+               │  │  before it is treated as real.     |             
+               │  │                                    |
                │  │                                    │
-               │  │  N frames elapsed?                 │
+               │  │                                    |
                │  │  No  → continue loop               │
                │  │  Yes → capture frame snapshot      │
                │  └──────────────┬─────────────────────┘
