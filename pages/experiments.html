@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Experiments — Unknown Area Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <nav class="site-nav">
+    <a href="../index.html">Home</a>
+    <a href="../pages/unknown-object-detection.html">Unknown Object Detection</a>
+    <a href="../pages/multimodal-interpretation.html">Multimodal Interpretation</a>
+    <a href="../pages/navigation.html">Navigation</a>
+    <a href="../pages/experiments.html" class="nav-active">Experiments</a>
+  </nav>
+
+  <main class="page-content">
+    <h1>Experiments</h1>
+
+    <section id="vlm-comparison">
+      <h2>Gemini vs. OpenAI Comparative Experiment</h2>
+
+      <h3>Setup</h3>
+      <p>
+        This experiment evaluates two cloud-based vision-language models on their ability to assess
+        road traversability from a single image. The two models evaluated were
+        <code>gemini-2.5-flash-lite</code> (Google Gemini API) and <code>gpt-4.1-nano</code>
+        (OpenAI API).
+      </p>
+      <p>
+        The test set consisted of 9 images drawn from a set labelled test1–test10, with test4
+        excluded as it was unavailable at the time of the experiment. Each model was called
+        sequentially via its respective API using the same shared prompt:
+      </p>
+      <blockquote>
+        <p>
+          "Analyse this image for an autonomous vehicle. Reply with a JSON object with exactly
+          these fields: <code>description</code>, <code>traversable</code> (true/false),
+          <code>justification</code>. Return only the raw JSON, no markdown fences."
+        </p>
+      </blockquote>
+      <p>
+        Timing was measured as wall-clock time per API call using <code>time.perf_counter()</code>,
+        capturing the full round-trip latency from request dispatch to response receipt.
+      </p>
+
+      <h3>Speed Results</h3>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Image ID</th>
+              <th>Gemini (s)</th>
+              <th>OpenAI (s)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>test1</td><td>1.359</td><td>1.395</td></tr>
+            <tr><td>test2</td><td>2.430</td><td>1.990</td></tr>
+            <tr><td>test3</td><td>2.609</td><td>2.239</td></tr>
+            <tr><td>test5</td><td>3.771</td><td>3.897</td></tr>
+            <tr><td>test6</td><td>1.213</td><td>1.227</td></tr>
+            <tr><td>test7</td><td>1.013</td><td>0.919</td></tr>
+            <tr><td>test8</td><td>1.027</td><td>0.840</td></tr>
+            <tr><td>test9</td><td>2.756</td><td>1.310</td></tr>
+            <tr><td>test10</td><td>1.322</td><td>3.232</td></tr>
+            <tr>
+              <td><strong>Total</strong></td>
+              <td><strong>17.500</strong></td>
+              <td><strong>17.049</strong></td>
+            </tr>
+            <tr>
+              <td><strong>Mean</strong></td>
+              <td><strong>1.944 s</strong></td>
+              <td><strong>1.894 s</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Both models were comparable in speed. OpenAI averaged 1.894 s per image versus Gemini's
+        1.944 s — a difference of roughly 50 ms. Neither model showed a consistent latency
+        advantage across all images: Gemini was faster on test10 (1.322 s vs. 3.232 s) while
+        OpenAI was faster on test9 (1.310 s vs. 2.756 s).
+      </p>
+
+      <h3>Accuracy Results</h3>
+      <p>
+        Accuracy is defined as whether the model's <code>traversable</code> judgment matched the
+        ground truth for each image. Ground truth was assessed manually by the researcher.
+      </p>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Image ID</th>
+              <th>Ground Truth</th>
+              <th>Gemini Judgment</th>
+              <th>OpenAI Judgment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>test1</td>
+              <td>false</td>
+              <td class="result-incorrect">✗ true</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td>test2</td>
+              <td>false</td>
+              <td class="result-correct">✓ false</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td>test3</td>
+              <td>true</td>
+              <td class="result-correct">✓ true</td>
+              <td class="result-correct">✓ true</td>
+            </tr>
+            <tr>
+              <td>test5</td>
+              <td>false</td>
+              <td class="result-correct">✓ false</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td>test6</td>
+              <td>false</td>
+              <td class="result-correct">✓ false</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td>test7</td>
+              <td>true</td>
+              <td class="result-incorrect">✗ false</td>
+              <td class="result-correct">✓ true</td>
+            </tr>
+            <tr>
+              <td>test8</td>
+              <td>false</td>
+              <td class="result-correct">✓ false</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td>test9</td>
+              <td>true</td>
+              <td class="result-correct">✓ true</td>
+              <td class="result-incorrect">✗ false</td>
+            </tr>
+            <tr>
+              <td>test10</td>
+              <td>false</td>
+              <td class="result-correct">✓ false</td>
+              <td class="result-correct">✓ false</td>
+            </tr>
+            <tr>
+              <td><strong>Accuracy</strong></td>
+              <td>—</td>
+              <td><strong>77.8% (7/9)</strong></td>
+              <td><strong>88.9% (8/9)</strong></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Error Analysis</h3>
+      <p>
+        <strong>Gemini errors:</strong>
+      </p>
+      <ul>
+        <li>
+          <strong>test1</strong> — A person in a morph suit standing next to a novelty pedestrian
+          sign. Gemini judged the scene traversable, reasoning that the signage and person did not
+          obstruct the road. The model failed to recognise the pedestrian-adjacent hazard as a
+          reason to stop. This reflects an over-permissive tendency in ambiguous pedestrian scenes.
+        </li>
+        <li>
+          <strong>test7</strong> — A graffiti-covered bridge. Gemini judged it non-traversable,
+          citing structural concerns based on the graffiti. The bridge was in fact passable; the
+          model over-indexed on visual degradation as a proxy for structural unsafety, demonstrating
+          over-caution when surface appearance is unusual.
+        </li>
+      </ul>
+      <p>
+        <strong>OpenAI errors:</strong>
+      </p>
+      <ul>
+        <li>
+          <strong>test9</strong> — A woman hitchhiking on the roadside with a clear road ahead.
+          OpenAI judged the scene non-traversable, citing the woman's proximity to the road as a
+          hazard. The road itself was clear and the correct judgment was traversable. This reflects
+          over-caution in scenes with roadside human presence.
+        </li>
+      </ul>
+      <p>
+        Both models performed well on clear-cut cases (fallen tree, flooded road, livestock,
+        aircraft on road) and struggled only on edge cases involving human presence or ambiguous
+        infrastructure. Given near-identical latency profiles, accuracy is the primary
+        differentiator, favouring <code>gpt-4.1-nano</code> for deployment in traversability
+        assessment pipelines.
+      </p>
+    </section>
+
+    <section id="demo-pipeline">
+      <h2>Demo Pipeline 1</h2>
+      <p>
+        Demo Pipeline 1 (<code>mainDemo1.py</code>) is the first end-to-end unknown-object
+        navigation pipeline. It combines a single-model object detector with a cloud
+        vision-language model to make real-time traversability decisions from a live webcam stream.
+        The pipeline has four key architectural components:
+      </p>
+
+      <h3>Three-State YOLO Confidence Classification</h3>
+      <p>
+        Object detections from <code>YOLOv8s-worldv2</code> are classified into one of three
+        states based on confidence score:
+      </p>
+      <ul>
+        <li>
+          <strong>Known</strong> (confidence ≥ 50%): The object is identified with sufficient
+          confidence. No further action is taken; the detection is displayed with a blue bounding
+          box.
+        </li>
+        <li>
+          <strong>Candidate unknown</strong> (25% ≤ confidence &lt; 50%): The object is detected
+          but cannot be confidently classified. It is flagged as a candidate unknown and displayed
+          with an orange bounding box. A per-object streak counter begins incrementing.
+        </li>
+        <li>
+          <strong>Ignored</strong> (confidence &lt; 25%): The detection is treated as noise and
+          silently dropped.
+        </li>
+      </ul>
+      <p>
+        This three-state classification uses YOLO confidence as a proxy for out-of-distribution
+        detection: an open-vocabulary detector that assigns low confidence to a region is
+        effectively signalling that the object does not closely match any known category.
+      </p>
+
+      <h3>Gemini Traversability Assessment</h3>
+      <p>
+        When a candidate unknown object is confirmed (see streak logic below), a snapshot of the
+        current frame is sent to <code>Gemini 2.5 Flash Lite</code> via the Google Generative AI
+        API. The model is asked to return a structured JSON response containing a scene
+        description, a binary <code>traversable</code> judgment, and a one-sentence justification.
+        The traversability verdict is displayed as a persistent banner on the live stream until a
+        new query completes.
+      </p>
+
+      <h3>Streak-Based Confirmation</h3>
+      <p>
+        A candidate unknown object must appear in <strong>8 consecutive frames</strong> before it
+        is treated as a confirmed unknown and triggers a Gemini query. The streak counter resets to
+        zero as soon as no candidate unknown is detected in a frame. This requirement filters out
+        transient detections — a person briefly walking through the frame will not trigger the VLM
+        assessment; only objects that persist in the scene will.
+      </p>
+
+      <h3>API Cooldown</h3>
+      <p>
+        A <strong>5-second cooldown</strong> is enforced between consecutive Gemini API calls.
+        Once a query is dispatched, no further queries are sent until the cooldown has elapsed,
+        regardless of whether new confirmed unknowns are detected. This prevents excessive API
+        usage during scenes where an unknown object remains persistently in frame. The remaining
+        cooldown time is displayed in the bottom-right corner of the stream overlay.
+      </p>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Unknown Area Navigation · <a href="https://github.com/ivantorriani/unknown-area-navigation">GitHub</a></p>
+  </footer>
+
+</body>
+</html>

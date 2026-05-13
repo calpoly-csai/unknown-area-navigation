@@ -1,0 +1,65 @@
+[
+    {
+        "imageName": "test1.jpg",
+        "imageDescription": "A person in a black morph suit is standing next to a large, yellow diamond-shaped sign that mimics a pedestrian crossing sign.",
+        "traversability": true, 
+        "justification": "The scene depicts a clear path, and while unusual, the presence of a person and signage does not obstruct the road or present an immediate hazard.",
+        "timeTaken": 1.359
+    },
+    {
+        "imageName": "test2.jpg",
+        "imageDescription": "A person in a traffic cone costume holds a stop sign in front of construction vehicles.",
+        "traversability": false,
+        "justification": "The presence of a person holding a stop sign and construction vehicles indicates a controlled or closed area, making it unsafe for autonomous traversal.",
+        "timeTaken": 2.43
+    },
+    {
+        "imageName": "test3.jpg",
+        "imageDescription": "An empty asphalt road with a white line down the center stretches into the distance under a clear blue sky, with shadows of two people cast on the road.",
+        "traversability": true,
+        "justification": "The road is clear of obstacles and appears to be in good condition, with no immediate hazards visible.",
+        "timeTaken": 2.609
+    },
+    {
+        "imageName": "test5.jpg",
+        "imageDescription": "A road is blocked by a large fallen tree and debris in a lush, overgrown forest.",
+        "traversability": false,
+        "justification": "The road is completely obstructed by a large fallen tree and associated debris, making it impassable for an autonomous vehicle.",
+        "timeTaken": 3.771
+    },
+    {
+        "imageName": "test6.jpeg",
+        "imageDescription": "A herd of cattle is crossing a two-lane road, with vehicles visible in the background.",
+        "traversability": false,
+        "justification": "The road is blocked by a large herd of cattle, making it impassable for the autonomous vehicle.",
+        "timeTaken": 1.213
+    },
+    {
+        "imageName": "test7.jpeg",
+        "imageDescription": "An old, graffiti-covered bridge stretches into a treed horizon.",
+        "traversability": false,
+        "justification": "The bridge appears structurally unsound and is covered in graffiti, indicating it is not a maintained road and likely unsafe for an autonomous vehicle.",
+        "timeTaken": 1.013
+    },
+    {
+        "imageName": "test8.jpeg",
+        "imageDescription": "A flooded rural road is shown with water covering much of the asphalt, surrounded by trees.",
+        "traversability": false,
+        "justification": "The road is significantly flooded, making it unsafe for an autonomous vehicle to traverse due to potential depth and unseen obstacles.",
+        "timeTaken": 1.027
+    },
+    {
+        "imageName": "test9.jpg",
+        "imageDescription": "A young woman stands by the side of a paved road, hitchhiking, with a car visible in the distance and mountains in the background.",
+        "traversability": true,
+        "justification": "The road is clear of immediate obstructions and appears to be a public roadway, allowing for safe passage for an autonomous vehicle.",
+        "timeTaken": 2.756
+    },
+    {
+        "imageName": "test10.jpeg",
+        "imageDescription": "A small airplane is on a wet road with other vehicles present.",
+        "traversability": false,
+        "justification": "The road is blocked by an airplane, making it impassable and unsafe for autonomous vehicle traversal.",
+        "timeTaken": 1.322
+    }
+]

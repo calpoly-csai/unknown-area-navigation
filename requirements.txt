@@ -1,13 +1,29 @@
-# Core CV / YOLO path
+# Core CV
 opencv-python
-ultralytics
-
-# Shared image utilities
 numpy
 pillow
 
-# OWL path
+# Navigation
+pupil-apriltags
+
+# Object Detection / ML
+ultralytics
 torch
 torchvision
 transformers
-git+https://github.com/NVIDIA-AI-IOT/nanoowl.git
+
+# NanoOWL (requires NVIDIA CUDA environment)
+# git+https://github.com/NVIDIA-AI-IOT/nanoowl.git
+
+# Gemini API
+google-generativeai==0.8.3
+
+# OpenAI API
+openai==1.82.0
+
+# Utilities
+python-dotenv==1.0.1
+
+# Testing
+pytest
+hypothesis

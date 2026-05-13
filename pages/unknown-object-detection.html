@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Unknown Object Detection — Unknown Area Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <nav class="site-nav">
+    <a href="../index.html">Home</a>
+    <a href="../pages/unknown-object-detection.html" class="nav-active">Unknown Object Detection</a>
+    <a href="../pages/multimodal-interpretation.html">Multimodal Interpretation</a>
+    <a href="../pages/navigation.html">Navigation</a>
+    <a href="../pages/experiments.html">Experiments</a>
+  </nav>
+
+  <main class="page-content">
+
+    <h1>Unknown Object Detection</h1>
+
+    <section id="problem">
+      <h2>Problem Statement</h2>
+      <p>
+        Standard closed-vocabulary detectors are trained on fixed class sets. When presented with an
+        out-of-distribution object — one that does not appear in the training data — these models do
+        not abstain or express uncertainty; instead, they assign the nearest known class label to the
+        object with whatever confidence the model can muster. This silent mislabelling is the core
+        problem the subsystem addresses: a robot acting on a wrong label may treat an unknown obstacle
+        as a familiar, benign object and navigate into it. The goal of this subsystem is to detect
+        when the model is uncertain and flag the object as <em>unknown</em> rather than producing a
+        confidently wrong classification.
+      </p>
+    </section>
+
+    <section id="approaches">
+      <h2>Approaches</h2>
+
+      <h3>Approach 1 — Confidence-Thresholded YOLO-World</h3>
+      <p>
+        This approach uses YOLO-World's open-vocabulary confidence scores as a proxy for model
+        certainty, treating low-confidence predictions as evidence of an out-of-distribution object.
+        The detection mechanism flags any bounding box whose confidence score falls below
+        <strong>50%</strong> as an unknown object, displaying it in red, while detections at or above
+        50% are labeled with the predicted class name. The intended use case is real-time webcam
+        inference on standard CPU/GPU hardware where a single model is sufficient and a simple,
+        interpretable threshold is preferred over a more complex multi-model pipeline.
+      </p>
+
+      <h3>Approach 2 — Dual-Model Consensus (NanoOWL + YOLO-World)</h3>
+      <p>
+        This approach combines a class-agnostic detector (NanoOWL) with a class-specific detector
+        (YOLO-World) so that objects found by the agnostic model but unmatched by the class-specific
+        model can be flagged as unknown. The consensus mechanism works as follows: NanoOWL detects
+        any generic object presence; each NanoOWL bounding box is then matched against YOLO-World
+        detections using IoU overlap — objects detected by NanoOWL but unmatched by YOLO-World
+        (IoU below <code>IOU_MATCH_THRESHOLD</code> of 0.20, or no YOLO detection at all) are
+        flagged as unknown. The intended use case is scenarios where higher recall on unknown objects
+        is required and the additional compute cost of running two models in parallel is acceptable.
+      </p>
+
+      <h3>Approach 3 — Baseline Closed-Vocabulary YOLO</h3>
+      <p>
+        This approach runs a standard YOLOv11n model on a live webcam feed with no unknown-object
+        logic whatsoever, serving as a reference point for the limitations the other approaches aim
+        to overcome. The mechanism is straightforward: the model assigns the nearest known class
+        label to every detected object with no mechanism to express uncertainty or flag
+        out-of-distribution inputs. The intended use case is as a baseline that illustrates the core
+        limitation — silent mislabelling — motivating the development of Approaches 1 and 2.
+      </p>
+
+      <h3>Approach 4 — Frame-to-Frame Colour Histogram Comparison</h3>
+      <p>
+        This approach detects scene changes by comparing the colour distribution of consecutive
+        webcam frames, flagging any significant shift as a potential unknown-object event without
+        requiring a pretrained model. The flagging mechanism computes the
+        <strong>Bhattacharyya distance</strong> between the 3D BGR colour histograms of consecutive
+        frames (8 bins per channel, L1-normalised); when the distance exceeds a threshold of 0.1,
+        the text "Color Changed" is overlaid on the stream for 0.5 seconds. The intended use case
+        is as a lightweight, model-free change-detection pre-filter that can run on any hardware
+        without a GPU, signalling that a more expensive detection pipeline should be invoked.
+      </p>
+    </section>
+
+    <section id="parameters">
+      <h2>Key Parameters</h2>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Approach</th>
+              <th>Parameter Name</th>
+              <th>Value</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Confidence-Thresholded YOLO-World</td>
+              <td>Confidence threshold</td>
+              <td>50%</td>
+            </tr>
+            <tr>
+              <td>Dual-Model Consensus</td>
+              <td><code>NANO_OWL_THRESHOLD</code></td>
+              <td>0.08</td>
+            </tr>
+            <tr>
+              <td>Dual-Model Consensus</td>
+              <td><code>YOLO_WORLD_LOW_CONF_THRESHOLD</code></td>
+              <td>0.35</td>
+            </tr>
+            <tr>
+              <td>Dual-Model Consensus</td>
+              <td><code>IOU_MATCH_THRESHOLD</code></td>
+              <td>0.20</td>
+            </tr>
+            <tr>
+              <td>Dual-Model Consensus</td>
+              <td><code>INFERENCE_MAX_WIDTH</code></td>
+              <td>640 px</td>
+            </tr>
+            <tr>
+              <td>Dual-Model Consensus</td>
+              <td><code>NANO_OWL_FRAME_INTERVAL</code></td>
+              <td>3 frames</td>
+            </tr>
+            <tr>
+              <td>Colour Histogram</td>
+              <td>Histogram bins</td>
+              <td>8 per channel</td>
+            </tr>
+            <tr>
+              <td>Colour Histogram</td>
+              <td>Change threshold</td>
+              <td>0.1 (Bhattacharyya)</td>
+            </tr>
+            <tr>
+              <td>Colour Histogram</td>
+              <td>Alert duration</td>
+              <td>0.5 s</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="limitations">
+      <h2>Limitations</h2>
+      <ul>
+        <li>
+          Evaluation was entirely qualitative — approaches were assessed by presenting niche or
+          unusual objects to a live webcam and observing detection behaviour. No standardised
+          benchmark dataset was used, so no quantitative performance metrics (precision, recall,
+          F1) are available for any of the four approaches.
+        </li>
+        <li>
+          NanoOWL was run on CPU rather than its intended deployment target of NVIDIA Jetson edge
+          hardware. Inference on CPU is significantly slower, which constrained the frame rate and
+          limited the practical usability of Approach 2 in real-time scenarios.
+        </li>
+        <li>
+          A planned fourth approach — training a custom class-agnostic detection model on a
+          researcher-collected dataset of 20–30 objects labeled under a single "Object" class using
+          AnyLabeling and Roboflow — was designed but not completed in this phase. The partial
+          implementation exists in <code>src/unknown_object_detection/agnostic_nano_owl.py</code>.
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Unknown Area Navigation · <a href="https://github.com/ivantorriani/unknown-area-navigation">GitHub</a></p>
+  </footer>
+
+</body>
+</html>

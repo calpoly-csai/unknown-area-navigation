@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AprilTag-Based Navigation — Unknown Area Navigation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+<body>
+
+  <nav class="site-nav">
+    <a href="../index.html">Home</a>
+    <a href="../pages/unknown-object-detection.html">Unknown Object Detection</a>
+    <a href="../pages/multimodal-interpretation.html">Multimodal Interpretation</a>
+    <a href="../pages/navigation.html" class="nav-active">Navigation</a>
+    <a href="../pages/experiments.html">Experiments</a>
+  </nav>
+
+  <main class="page-content">
+    <h1>AprilTag-Based Navigation</h1>
+
+    <section id="task">
+      <h2>Task Definition</h2>
+      <p>
+        Given a live camera feed, the navigation subsystem must detect an AprilTag in the current
+        frame, estimate its 3D pose using <code>cv2.solvePnP</code>, and issue one of five movement
+        states based on the tag's position relative to the camera:
+      </p>
+      <ul>
+        <li><strong>Move Left</strong> — the tag is displaced to the left beyond the lateral threshold</li>
+        <li><strong>Move Right</strong> — the tag is displaced to the right beyond the lateral threshold</li>
+        <li><strong>Move Forward</strong> — the tag is aligned and beyond the stopping distance</li>
+        <li><strong>Stop</strong> — the tag is within the stopping distance</li>
+        <li><strong>No Tag Detected</strong> — no AprilTag is visible in the current frame</li>
+      </ul>
+      <p>
+        The "No Tag Detected" state is emitted whenever the detector finds no marker in the frame,
+        allowing the system to signal loss of the navigation target explicitly rather than silently
+        holding the last known command.
+      </p>
+    </section>
+
+    <section id="calibration">
+      <h2>Camera Calibration</h2>
+      <p>
+        Accurate pose estimation requires knowledge of the camera's intrinsic parameters. A
+        dedicated calibration script was developed to compute these before running the main
+        detection loop.
+      </p>
+      <h3>Checkerboard Target</h3>
+      <p>
+        The calibration target is a checkerboard pattern with an <strong>8×6 inner-corner grid</strong>
+        and a <strong>20 mm square size</strong>. Multiple images of the board at varying angles and
+        distances were collected to ensure robust parameter estimation.
+      </p>
+      <h3>Corner Detection</h3>
+      <p>
+        For each calibration image, the frame was converted to grayscale and
+        <code>cv2.findChessboardCorners</code> was used to locate the inner corners of the pattern.
+        Corner positions were then refined to sub-pixel accuracy using
+        <code>cv2.cornerSubPix</code> with a termination criterion of 30 iterations or ε = 0.001.
+      </p>
+      <h3>Intrinsic Parameter Estimation</h3>
+      <p>
+        Once corner correspondences were collected across all calibration images,
+        <code>cv2.calibrateCamera</code> was called with the object-point / image-point pairs to
+        recover the <strong>camera matrix K</strong> and <strong>distortion coefficients</strong>.
+        The resulting parameters were saved to <code>camera_params.npz</code> for use in the
+        detection script.
+      </p>
+      <h3>Coordinate Convention</h3>
+      <p>
+        The translation vector returned by pose estimation is expressed in the camera coordinate
+        frame using the following convention:
+      </p>
+      <ul>
+        <li><strong>X (right)</strong> — lateral offset; negative values indicate the tag is to the left, positive values to the right</li>
+        <li><strong>Y (down)</strong> — vertical offset relative to the camera optical centre</li>
+        <li><strong>Z (into the scene)</strong> — depth along the optical axis; represents the distance from the camera to the tag</li>
+      </ul>
+    </section>
+
+    <section id="movement">
+      <h2>Movement Control Logic</h2>
+      <p>
+        Directional commands are derived from the tag's translation vector using fixed thresholds.
+        The lateral offset is checked before depth, so the agent corrects its heading before
+        advancing toward the target.
+      </p>
+      <div class="table-wrapper">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Condition</th>
+              <th>Evaluated In Order</th>
+              <th>Command</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>pose_t[0] &lt; −0.075 m</code></td>
+              <td>1st</td>
+              <td>Move Left</td>
+            </tr>
+            <tr>
+              <td><code>pose_t[0] &gt; +0.075 m</code></td>
+              <td>2nd</td>
+              <td>Move Right</td>
+            </tr>
+            <tr>
+              <td><code>pose_t[2] ≤ 0.1 m</code></td>
+              <td>3rd</td>
+              <td>Stop</td>
+            </tr>
+            <tr>
+              <td>Otherwise</td>
+              <td>4th</td>
+              <td>Move Forward</td>
+            </tr>
+            <tr>
+              <td>No tag detected</td>
+              <td>—</td>
+              <td>No Tag Detected</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="table-note">
+        Conditions are evaluated in the order listed. Lateral misalignment is checked before depth,
+        ensuring the agent corrects its heading before advancing. The lateral dead-band of ±7.5 cm
+        defines the alignment zone within which depth takes precedence.
+      </p>
+    </section>
+
+    <section id="limitations">
+      <h2>Limitations</h2>
+      <ul>
+        <li>
+          <strong>Single-tag assumption.</strong> The system assumes at most one AprilTag is present
+          per scene. Multi-tag disambiguation logic was not implemented.
+        </li>
+        <li>
+          <strong>Discrete threshold-based commands.</strong> Movement commands are binary and
+          threshold-based. No continuous control signal or PID controller was implemented, so the
+          agent cannot smoothly interpolate between states.
+        </li>
+        <li>
+          <strong>No temporal smoothing.</strong> The system operates on individual frames with no
+          filtering across time. Rapid tag movement or momentary detection failures can cause
+          flickering command output.
+        </li>
+        <li>
+          <strong>No integration with other subsystems.</strong> The navigation subsystem operates
+          independently. No integration with the unknown object detection or multimodal
+          interpretation subsystems was implemented in this phase.
+        </li>
+      </ul>
+    </section>
+
+  </main>
+
+  <footer class="site-footer">
+    <p>Unknown Area Navigation · <a href="https://github.com/ivantorriani/unknown-area-navigation">GitHub</a></p>
+  </footer>
+
+</body>
+</html>

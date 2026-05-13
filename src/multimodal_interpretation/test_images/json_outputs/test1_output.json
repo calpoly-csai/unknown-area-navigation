@@ -1,0 +1,6 @@
+{
+    "imageName": "test1.jpg",
+    "imageDescription": "A pedestrian traffic sign is visible alongside a cutout of a walking figure on a yellow background in a parking lot.",
+    "traversability": false,
+    "justification": "The scene presents a visual distraction that may confuse vehicle sensors due to the presence of non-standard signage and shapes."
+}
