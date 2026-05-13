@@ -18,17 +18,15 @@ from ultralytics import YOLOWorld
 YOLO_WORLD_MODEL = "yolov8s-worldv2.pt"
 YOLO_WORLD_CLASSES = [
     "person",
-    "cell phone",
-    "remote",
+    "phone",
     "book",
     "bottle",
-    "cup",
+    "coffee mug",
     "mouse",
     "keyboard",
     "pen",
-    "marker",
-    "tool",
-    "box",
+    "headphones",
+    "backpack",
 ]
 
 # Nano-Owl examples use a prompt like "[an owl, a glove]". In the Python API
