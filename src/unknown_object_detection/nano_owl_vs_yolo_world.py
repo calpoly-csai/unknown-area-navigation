@@ -18,15 +18,17 @@ from ultralytics import YOLOWorld
 YOLO_WORLD_MODEL = "yolov8s-worldv2.pt"
 YOLO_WORLD_CLASSES = [
     "person",
-    "phone",
+    "cell phone",
+    "remote",
     "book",
     "bottle",
-    "coffee mug",
+    "cup",
     "mouse",
     "keyboard",
     "pen",
-    "headphones",
-    "backpack",
+    "marker",
+    "tool",
+    "box",
 ]
 
 # Nano-Owl examples use a prompt like "[an owl, a glove]". In the Python API
@@ -34,11 +36,18 @@ YOLO_WORLD_CLASSES = [
 NANO_OWL_PRIMARY_PROMPT = ["objects"]
 NANO_OWL_FALLBACK_PROMPT = ["handheld object"]
 
-NANO_OWL_THRESHOLD = 0.08
-YOLO_WORLD_SHOW_THRESHOLD = 0.10
-YOLO_WORLD_LOW_CONF_THRESHOLD = 0.35
-IOU_MATCH_THRESHOLD = 0.20 # count as same object if overlap at least 20%
-INFERENCE_MAX_WIDTH = 640 # for speed
+# -- THRESHOLDS ---
+NANO_OWL_THRESHOLD = 0.08 # min score NanoOwl needs before it reports a detection
+# lower nano owl threshold means it'll detect more, higher means stricter + may miss real objects
+
+YOLO_WORLD_SHOW_THRESHOLD = 0.10 # min confidence for showing YOLO-World detection
+# lower means weak candidate bozes  
+YOLO_WORLD_LOW_CONF_THRESHOLD = 0.35 # determines if match is weak
+# Separates weak match from match, if YOLO confidence below .35 it's treated as uncertain
+
+IOU_MATCH_THRESHOLD = 0.20 # count as same object if overlap at least 20% (higher percentage makes matching stricter)
+
+INFERENCE_MAX_WIDTH = 640 # for speed, resizes frames down 
 NANO_OWL_FRAME_INTERVAL = 3 # for speed 
 OVERLAY_FONT = cv2.FONT_HERSHEY_DUPLEX
 STATUS_FONT_SCALE = 0.5
