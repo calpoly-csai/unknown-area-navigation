@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>A Multimodal Perception Pipeline for Out-of-Distribution Object Detection, Vision-Language Traversability Assessment, and Fiducial-Marker-Based Autonomous Navigation</title>
+<link rel="stylesheet" href="paper.css">
+</head>
+<body>
+
+<div class="title-block">
+  <h1>A Multimodal Perception Pipeline for Out-of-Distribution Object Detection,
+  Vision-Language Traversability Assessment, and Fiducial-Marker-Based Autonomous Navigation</h1>
+  <div class="authors">Zach Goldwyn, Ivan Torriani, Ceyanna Badyal, Saurish Sauman, Vinayak Kohil</div>
+  <div class="affiliation">CSAI Research Team, California Polytechnic University San Luis Obispo</div>
+</div>
+
+<div class="abstract">
+  <span class="abstract-label">Abstract —</span>
+  <p>
+    Autonomous navigation systems trained on fixed datasets struggle to generalize when deployed in
+    unfamiliar environments. A model trained on high-infrastructure urban settings may fail to
+    correctly interpret a rural tractor, a costumed pedestrian, or an unusual roadside obstacle —
+    not because the model is poorly designed, but because the object or scene lies outside its
+    training distribution. Rather than retraining or replacing existing navigation systems, this
+    work presents a supplementary perception pipeline that can be layered on top of them to handle
+    out-of-distribution (OOD) inputs. The pipeline has three stages: (1) <em>unknown object
+    detection</em>, comparing three practical approaches for flagging objects a detector cannot
+    confidently classify; (2) <em>multimodal scene interpretation</em>, using vision-language models
+    (VLMs) to produce a natural-language scene description and a binary traversability judgment; and
+    (3) <em>fiducial-marker-based navigation</em>, using AprilTag pose estimation to issue directional
+    movement commands gated by the traversability verdict. We evaluate the three detection approaches
+    on a 30-trial known/unknown object protocol, finding that a confidence-thresholded open-vocabulary
+    detector achieves 93.3% accuracy versus 53.3% for a lightweight colour-histogram baseline. We
+    further compare two cloud vision-language APIs on a 9-image traversability task, finding GPT-4.1-nano
+    modestly more accurate than Gemini 2.5 Flash Lite (88.9% vs. 77.8%) at comparable latency (~1.9s).
+    Local, on-device VLMs are shown to be impractical in their current form, requiring 10–30+ minutes
+    per image on CPU versus 2–5 seconds for cloud APIs. Taken together, the three subsystems form a
+    modular, model-agnostic pipeline that can flag perceptual uncertainty and provide contextual scene
+    understanding — capabilities largely absent from standard autonomous navigation stacks operating
+    outside their training domain.
+  </p>
+</div>
+
+<div class="section">
+<h2>1. Introduction</h2>
+<p>
+Deep learning models used in autonomous navigation are trained on a fixed data distribution, and their
+performance degrades — often silently — when that distribution is violated at deployment time. A
+perception stack trained primarily on dense urban traffic may have no representation for a farm
+vehicle, a person in costume, or debris scattered across a road. In each case the failure is not a
+defect in the model's training procedure; it is a structural limitation of closed-world learning. As
+operating environments become less predictable, this limitation becomes the dominant obstacle to
+reliable autonomous operation, motivating supplementary perception mechanisms rather than continual
+retraining of the primary navigation stack.
+</p>
+<p>
+This paper presents a three-stage pipeline designed to sit alongside an existing navigation system
+rather than replace it. The pipeline first attempts to detect when an object cannot be confidently
+classified (Section 4.1), then delegates scene-level reasoning about that uncertainty to a
+vision-language model that judges whether the scene remains safely traversable (Section 4.2), and
+finally uses a fiducial marker system to provide the concrete directional control needed to act on
+that judgment (Section 4.3). Our contributions are:
+</p>
+<ul>
+<li>A comparative evaluation of four unknown-object detection strategies — a confidence-thresholded
+open-vocabulary detector, a dual-model class-agnostic/classifier consensus pipeline, a closed-vocabulary
+baseline, and a lightweight colour-histogram change detector — evaluated under an identical 30-trial
+protocol.</li>
+<li>A comparative evaluation of six vision-language models (four local, two cloud-hosted) for
+scene-description-and-traversability judgment, characterizing the practical latency gap between
+on-device and API-based inference.</li>
+<li>A working fiducial-marker navigation subsystem that converts AprilTag pose estimates into
+traversability-gated directional commands.</li>
+<li>Property-based validation (Section 4.2) of the shared utilities that glue the multimodal
+subsystem together, using randomized testing rather than fixed example cases.</li>
+</ul>
+</div>
+
+<div class="section">
+<h2>2. Related Work</h2>
+
+<h3>2.1 Open-Vocabulary and Out-of-Distribution Object Detection</h3>
+<p>
+Standard object detectors are trained on a closed set of classes and have no mechanism to express
+uncertainty about inputs outside that set. Yang et al. <span class="cite">[11]</span> formalize this
+gap under the umbrella of <em>generalized out-of-distribution detection</em>, unifying outlier,
+anomaly, and open-set recognition problems. Open-vocabulary detectors such as YOLO-World
+<span class="cite">[1]</span> partially address this by grounding detection in a region-text
+contrastive objective rather than a fixed class head, allowing a single model to be queried against
+an arbitrary text vocabulary at inference time. Minderer et al.'s OWL-ViT <span class="cite">[4]</span>
+takes a related approach, transferring a contrastively pretrained image-text encoder to open-vocabulary
+localization by attaching lightweight detection heads directly to its output tokens; OWL-ViT is the
+architecture underlying the class-agnostic NanoOWL detector used in our dual-model consensus approach
+(Section 4.1).
+</p>
+
+<h3>2.2 Fiducial-Marker Navigation</h3>
+<p>
+Visual fiducial systems provide a reliable, low-cost alternative to full scene reconstruction when a
+known landmark is sufficient for localization. Olson's AprilTag <span class="cite">[2]</span>
+introduced a 2D bar-code-style marker with a lexicode-based encoding that guarantees a minimum Hamming
+distance between tags under rotation, enabling robust 6-DOF pose recovery from a single image. Wang
+and Olson's AprilTag 2 <span class="cite">[3]</span> substantially improved detection rate, false
+positive rate, and computational cost over the original system. Our navigation subsystem (Section 4.3)
+builds directly on this line of work, using AprilTag pose estimates as the sole localization signal for
+directional control.
+</p>
+
+<h3>2.3 Vision-Language Models for Scene Understanding</h3>
+<p>
+Recent vision-language models (VLMs) connect a visual encoder to a large language model, enabling
+natural-language reasoning over image content. LLaVA <span class="cite">[5]</span> demonstrated that
+instruction-tuning a vision encoder and LLM pair on GPT-4-generated multimodal instruction data yields
+strong general-purpose visual chat ability. Qwen2-VL <span class="cite">[6]</span> and InternVL
+<span class="cite">[7]</span> extend this family with native support for variable input resolution and
+large-scale vision-language alignment, respectively, and are representative of the open, locally
+deployable VLMs evaluated in Section 4.2. Moondream2 <span class="cite">[12]</span> represents the
+opposite end of the size spectrum, a sub-2B-parameter open VLM designed to run efficiently on
+constrained hardware. On the cloud API side, Google's Gemini family <span class="cite">[8]</span> and
+OpenAI's GPT-4o family <span class="cite">[9]</span> provide multimodal inference as a hosted service,
+trading local compute and data control for substantially lower latency — a trade-off we quantify
+directly in Section 6.2.
+</p>
+
+<h3>2.4 Property-Based Testing</h3>
+<p>
+Property-based testing, introduced by Claessen and Hughes' QuickCheck <span class="cite">[10]</span>,
+validates code against declared properties over randomly generated inputs rather than a fixed list of
+example cases. We apply this methodology (via the Python library Hypothesis) to the shared parsing and
+formatting utilities used across all multimodal-interpretation backends, described in Section 4.2.
+</p>
+</div>
+
+<div class="section">
+<h2>3. System Overview</h2>
+<p>
+The full pipeline (Fig. 1) runs continuously on a live camera stream. Each captured frame is passed
+through unknown-object detection; a detection that persists for at least a fixed number of consecutive
+frames — a persistence gate that filters transient detector flicker — is treated as a confirmed
+unknown and triggers a multimodal traversability query. Independently of detection state, every frame
+is also passed through AprilTag pose estimation. Forward motion is gated jointly by the most recent
+traversability verdict and the tag's estimated distance: the agent may only move forward when the
+scene has been judged traversable <em>and</em> the tag is not already within its stopping distance:
+otherwise it stops. The annotated frame, including the current detection state, traversability verdict,
+and movement command, is rendered to the display in real time.
+</p>
+<figure>
+  <img src="../images/charts/pipeline-diagram.png" alt="Pipeline architecture diagram">
+  <figcaption><strong>Figure 1.</strong> The six-stage pipeline. An unknown detection must persist
+  before it triggers a multimodal query (orange arrow); navigation runs on every frame regardless of
+  detection state and gates forward motion on the traversability verdict and tag distance (bottom row).</figcaption>
+</figure>
+</div>
+
+<div class="section">
+<h2>4. Methods</h2>
+
+<h3>4.1 Unknown Object Detection</h3>
+<p>
+Four approaches were implemented and evaluated on live camera input, each addressing the same
+underlying question — is this object outside the detector's confident operating range? — with a
+different mechanism and a different computational cost.
+</p>
+<p>
+<strong>Confidence-thresholded YOLO-World.</strong> YOLOv8s-worldv2, an open-vocabulary detector
+<span class="cite">[1]</span>, is run with agnostic non-maximum suppression and a fixed 50% confidence
+threshold. Detections at or above threshold are labeled with their predicted class; detections below
+threshold are flagged as an unknown object. Confidence acts as a proxy for how well the observed region
+matches the model's training distribution.
+</p>
+<p>
+<strong>Dual-model consensus (NanoOWL + YOLO-World).</strong> A class-agnostic detector, NanoOWL
+(built on OWL-ViT <span class="cite">[4]</span>), answers only whether <em>something</em> is present,
+using a permissive detection threshold (0.08) run every third frame to control latency. YOLO-World is
+queried in parallel against a fixed 12-class candidate vocabulary. Each NanoOWL detection is
+IoU-matched (threshold 0.20) against YOLO-World's boxes and classified as <strong>matched</strong>
+(YOLO-World confidence &ge; 0.35), <strong>weak match</strong> (a lower-confidence match), or
+<strong>unknown</strong> (no sufficient-overlap match at all). The intuition is that a class-agnostic
+model can confirm object <em>presence</em> even when a closed-candidate classifier cannot confirm
+object <em>identity</em>.
+</p>
+<p>
+<strong>Baseline closed-vocabulary YOLO.</strong> A standard YOLOv11n model with no unknown-object
+logic is included as a baseline: every detection is forced into its closed class set, with no
+mechanism to express uncertainty about an out-of-distribution object. This baseline illustrates the
+core limitation motivating the other three approaches.
+</p>
+<p>
+<strong>Colour histogram change detection.</strong> As a lightweight, model-free alternative,
+consecutive frames are converted to an 8&times;8&times;8-bin BGR colour histogram, and the Bhattacharyya
+distance between consecutive histograms is thresholded at 0.1 to flag a scene-level change. Unlike the
+other three approaches, this method detects <em>that</em> the scene changed, not <em>what</em> object
+is responsible, and requires no pretrained model or GPU.
+</p>
+
+<h3>4.2 Multimodal Scene Interpretation</h3>
+<p>
+Once an object is confirmed unknown, the pipeline still needs a decision: can the agent safely
+continue? We evaluate whether vision-language models can supply that judgment directly from a single
+image, producing both a natural-language scene description and a binary traversability verdict. Six
+models were evaluated: four run locally via Hugging Face <code>transformers</code> in float16
+precision — Qwen2-VL-7B-Instruct <span class="cite">[6]</span>, LLaVA-1.5-7B <span class="cite">[5]</span>,
+Moondream2 <span class="cite">[12]</span>, and InternVL2-2B <span class="cite">[7]</span> — and two
+accessed via cloud API — GPT-4o-mini <span class="cite">[9]</span> and Gemini 2.0 Flash Lite
+<span class="cite">[8]</span>. Local models were queried with two sequential prompts (a description
+request followed by a yes/no traversability question); the OpenAI backend instead used a single
+structured prompt requesting a JSON object with description, traversability, and justification fields,
+reducing latency and API cost. A shared helper module provides consistent traversability-string
+parsing, output-dict assembly, and output-path construction across all six backends. These utilities
+were validated with property-based testing <span class="cite">[10]</span> (Python Hypothesis, 100
+generated examples per property), checking five correctness properties — for example, that
+traversability parsing returns true if and only if a model's response begins with "yes," case-insensitive.
+</p>
+
+<h3>4.3 Navigation</h3>
+<p>
+Once an unknown object or non-traversable scene has been identified, the agent needs a reliable
+mechanism to orient itself using a known landmark. This subsystem detects a printed AprilTag
+<span class="cite">[2]</span><span class="cite">[3]</span> in the camera frame and recovers its 3D
+pose using camera intrinsics obtained via a checkerboard calibration procedure (8&times;6 inner-corner
+grid, 20&nbsp;mm squares). Movement commands are then derived from the tag's translation vector using
+fixed thresholds, shown in Table 1.
+</p>
+<table>
+<caption><strong>Table 1.</strong> Movement control logic derived from AprilTag pose.</caption>
+<thead><tr><th>Condition</th><th>Command</th></tr></thead>
+<tbody>
+<tr><td>Lateral offset &lt; &minus;7.5&nbsp;cm</td><td>Move Left</td></tr>
+<tr><td>Lateral offset &gt; +7.5&nbsp;cm</td><td>Move Right</td></tr>
+<tr><td>Depth &gt; 10&nbsp;cm (and scene traversable)</td><td>Move Forward</td></tr>
+<tr><td>Depth &le; 10&nbsp;cm, or scene not traversable</td><td>Stop</td></tr>
+<tr><td>No tag detected</td><td>No Tag Detected</td></tr>
+</tbody>
+</table>
+<p>
+The lateral thresholds define a dead-band within which the tag is considered aligned; conditions are
+evaluated in this order so that the agent corrects heading before advancing.
+</p>
+</div>
+
+<div class="section">
+<h2>5. Experimental Setup</h2>
+<p>
+<strong>Detection trials.</strong> Each of the three quantitatively evaluated detection approaches
+(confidence-thresholded YOLO-World, dual-model consensus, and colour histogram change detection) was
+tested under an identical protocol: five known objects (scissors, cell phone, fork, knife, cup) and
+five unknown objects (thermometer, lighter, chapstick, keys, inhaler) were each presented to the camera
+for three trials, for 30 trials per approach. Each trial was scored as a true positive (TP, an unknown
+object correctly flagged), true negative (TN, a known object correctly left unflagged), false positive
+(FP, a known object incorrectly flagged), or false negative (FN, an unknown object missed).
+</p>
+<p>
+<strong>VLM traversability comparison.</strong> Two cloud vision-language APIs — Gemini 2.5 Flash Lite
+and GPT-4.1-nano — were compared on nine test images (test1&ndash;test10, excluding test4, which was
+unavailable), using an identical prompt requesting a structured JSON response containing a scene
+description, a binary traversability judgment, and a one-sentence justification. Wall-clock latency
+was measured per API call, and traversability judgments were scored against manually assessed ground
+truth.
+</p>
+</div>
+
+<div class="section">
+<h2>6. Results</h2>
+
+<h3>6.1 Detection Trials</h3>
+<p>
+Table 2 and Figure 2 summarize the 30-trial results for each detection approach. The confidence-thresholded
+YOLO-World detector achieved the highest performance across all four metrics (93.3%), correctly
+identifying 14 of 15 unknown objects and 14 of 15 known objects. The dual-model consensus approach
+traded some recall for a lower false-negative rate elsewhere in the confusion matrix, reaching 80.0%
+accuracy (73.3% recall, 84.6% precision). The colour histogram change detector performed substantially
+worse (53.3% accuracy, 13.3% recall): because it responds to global frame-level colour change rather
+than object identity, it frequently failed to register a sufficiently large change when a small object
+was introduced into an already-populated scene, consistent with its intended role as a coarse
+pre-filter rather than a standalone detector.
+</p>
+<table>
+<caption><strong>Table 2.</strong> Detection-trial confusion matrices (30 trials each: 15 known, 15 unknown).</caption>
+<thead><tr><th>Approach</th><th>TP</th><th>TN</th><th>FP</th><th>FN</th><th>Acc.</th><th>Prec.</th><th>Recall</th><th>F1</th></tr></thead>
+<tbody>
+<tr><td>Confidence-Thresholded YOLO-World</td><td>14</td><td>14</td><td>1</td><td>1</td><td>93.3%</td><td>93.3%</td><td>93.3%</td><td>93.3%</td></tr>
+<tr><td>Dual-Model Consensus (NanoOWL + YOLO-World)</td><td>11</td><td>13</td><td>2</td><td>4</td><td>80.0%</td><td>84.6%</td><td>73.3%</td><td>78.6%</td></tr>
+<tr><td>Colour Histogram Change Detection</td><td>2</td><td>14</td><td>1</td><td>13</td><td>53.3%</td><td>66.7%</td><td>13.3%</td><td>22.2%</td></tr>
+</tbody>
+</table>
+<figure>
+  <img src="../images/charts/detection-trials.png" alt="Bar chart of detection trial results">
+  <figcaption><strong>Figure 2.</strong> Accuracy, precision, recall, and F1 across the three detection
+  approaches. For navigation safety, recall is the more safety-critical metric, since a missed unknown
+  object (false negative) is more dangerous than a false alarm.</figcaption>
+</figure>
+
+<h3>6.2 Multimodal Traversability Comparison</h3>
+<p>
+GPT-4.1-nano outperformed Gemini 2.5 Flash Lite on traversability accuracy (88.9%, 8/9, versus 77.8%,
+7/9) at near-identical mean latency (1.894s versus 1.944s; Table 3, Fig. 3). Gemini's two errors both
+involved ambiguous human presence or surface appearance: it judged a scene containing a person in a
+morph suit next to a novelty pedestrian sign as traversable, failing to treat the pedestrian-adjacent
+hazard as a reason to stop, and judged a graffiti-covered but structurally sound bridge as
+non-traversable, over-indexing on visual degradation as a proxy for structural unsafety. GPT-4.1-nano's
+single error was the opposite failure mode — over-caution — judging a scene with a roadside
+hitchhiker and a clear road ahead as non-traversable. Both models performed reliably on unambiguous
+cases (a fallen tree, a flooded road, livestock on the roadway, an aircraft blocking the road) and
+struggled only on scenes involving human presence or ambiguous infrastructure condition.
+</p>
+<table>
+<caption><strong>Table 3.</strong> Per-image traversability judgment (Gemini 2.5 Flash Lite vs. GPT-4.1-nano) against manually assessed ground truth.</caption>
+<thead><tr><th>Image</th><th>Ground truth</th><th>Gemini</th><th>OpenAI</th></tr></thead>
+<tbody>
+<tr><td>test1</td><td>false</td><td>&#10007; true</td><td>&#10003; false</td></tr>
+<tr><td>test2</td><td>false</td><td>&#10003; false</td><td>&#10003; false</td></tr>
+<tr><td>test3</td><td>true</td><td>&#10003; true</td><td>&#10003; true</td></tr>
+<tr><td>test5</td><td>false</td><td>&#10003; false</td><td>&#10003; false</td></tr>
+<tr><td>test6</td><td>false</td><td>&#10003; false</td><td>&#10003; false</td></tr>
+<tr><td>test7</td><td>true</td><td>&#10007; false</td><td>&#10003; true</td></tr>
+<tr><td>test8</td><td>false</td><td>&#10003; false</td><td>&#10003; false</td></tr>
+<tr><td>test9</td><td>true</td><td>&#10003; true</td><td>&#10007; false</td></tr>
+<tr><td>test10</td><td>false</td><td>&#10003; false</td><td>&#10003; false</td></tr>
+<tr><td><strong>Correct</strong></td><td>&mdash;</td><td><strong>7/9</strong></td><td><strong>8/9</strong></td></tr>
+</tbody>
+</table>
+<figure>
+  <img src="../images/charts/vlm-comparison.png" alt="Bar charts comparing Gemini and OpenAI accuracy and latency">
+  <figcaption><strong>Figure 3.</strong> Traversability accuracy and mean API latency, Gemini 2.5 Flash
+  Lite vs. GPT-4.1-nano, across 9 test images.</figcaption>
+</figure>
+</div>
+
+<div class="section">
+<h2>7. Discussion and Limitations</h2>
+<p>
+Across all three subsystems, evaluation was qualitative-to-moderate scale rather than large-benchmark:
+detection trials cover 30 presentations per approach and the VLM comparison covers 9 images, both
+researcher-supplied rather than drawn from a standardized dataset. Within unknown-object detection, the
+manually curated 12-class YOLO-World candidate vocabulary may not generalize across environments, and
+NanoOWL was run on CPU, considerably slower than the NVIDIA edge hardware it targets; a planned
+custom class-agnostic model trained on researcher-collected data was designed but not completed in this
+phase. Within multimodal interpretation, no ground-truth traversability labels exist beyond manual
+researcher assessment, all four local models were evaluated CPU-only, and traversability judgments are
+made from single static frames with no temporal context, depth, or sensor fusion — the single most
+consequential finding here is practical rather than qualitative: local VLM inference (10&ndash;30+
+minutes/image on CPU) is not currently viable for real-time deployment, while cloud APIs (2&ndash;5s/image)
+introduce a hard dependency on network connectivity and third-party availability. Within navigation, the
+system assumes a single tag per scene, issues only discrete threshold-based commands with no continuous
+controller, degrades at steep viewing angles or long distances, and has no temporal smoothing across
+frames. Most significantly, the three subsystems have not yet been integrated into a single running
+system in this evaluation phase; the pipeline architecture in Figure 1 reflects the intended
+integration, exercised in demo form (Section 3), but the quantitative results in Section 6 were
+collected on each subsystem independently.
+</p>
+</div>
+
+<div class="section">
+<h2>8. Conclusion and Future Work</h2>
+<p>
+We presented a three-stage supplementary perception pipeline for autonomous navigation in
+out-of-distribution environments, combining unknown-object detection, multimodal traversability
+assessment, and fiducial-marker-based navigation into a modular, model-agnostic architecture. Our
+results show that simple confidence-based detection can be highly effective (93.3% accuracy) when the
+underlying detector is open-vocabulary, that cloud vision-language APIs are currently the only
+practical option for real-time scene interpretation, and that AprilTag-based navigation provides a
+reliable, low-cost mechanism for the directional control needed to act on that interpretation. The
+most direct next steps are: full integration of the three subsystems into a single running pipeline
+evaluated end-to-end; quantization (e.g., INT8, GGUF) and hardware acceleration to make local VLM
+inference viable for real-time, network-independent deployment; and evaluation on a larger,
+standardized benchmark rather than researcher-curated test sets.
+</p>
+</div>
+
+<div class="section references">
+<h2>References</h2>
+<ol>
+<li id="ref1">T. Cheng, L. Song, Y. Ge, W. Liu, X. Wang, and Y. Shan, "YOLO-World: Real-Time
+Open-Vocabulary Object Detection," in <em>Proc. IEEE/CVF Conf. Computer Vision and Pattern Recognition
+(CVPR)</em>, 2024. arXiv:2401.17270.</li>
+<li id="ref2">E. Olson, "AprilTag: A robust and flexible visual fiducial system," in <em>Proc. IEEE
+Int. Conf. Robotics and Automation (ICRA)</em>, 2011.</li>
+<li id="ref3">J. Wang and E. Olson, "AprilTag 2: Efficient and robust fiducial detection," in
+<em>Proc. IEEE/RSJ Int. Conf. Intelligent Robots and Systems (IROS)</em>, 2016.</li>
+<li id="ref4">M. Minderer, A. Gritsenko, A. Stone, M. Neumann, D. Weissenborn, A. Dosovitskiy, A.
+Mahendran, A. Arnab, M. Dehghani, Z. Shen, X. Wang, X. Zhai, T. Kipf, and N. Houlsby, "Simple
+Open-Vocabulary Object Detection with Vision Transformers," in <em>Proc. European Conf. Computer
+Vision (ECCV)</em>, 2022. arXiv:2205.06230.</li>
+<li id="ref5">H. Liu, C. Li, Q. Wu, and Y. J. Lee, "Visual Instruction Tuning," in <em>Advances in
+Neural Information Processing Systems (NeurIPS)</em>, 2023. arXiv:2304.08485.</li>
+<li id="ref6">P. Wang, S. Bai, S. Tan, S. Wang, Z. Fan, J. Bai, K. Chen, X. Liu, J. Wang, W. Ge et
+al., "Qwen2-VL: Enhancing Vision-Language Model's Perception of the World at Any Resolution," arXiv
+preprint arXiv:2409.12191, 2024.</li>
+<li id="ref7">Z. Chen, J. Wu, W. Wang, W. Su, G. Chen, S. Xing, M. Zhong, Q. Zhang, X. Zhu, L. Lu, B.
+Li, P. Luo, T. Lu, Y. Qiao, and J. Dai, "InternVL: Scaling up Vision Foundation Models and Aligning
+for Generic Visual-Linguistic Tasks," in <em>Proc. IEEE/CVF Conf. Computer Vision and Pattern
+Recognition (CVPR)</em>, 2024. arXiv:2312.14238.</li>
+<li id="ref8">Gemini Team, Google DeepMind, "Gemini: A Family of Highly Capable Multimodal Models,"
+arXiv preprint arXiv:2312.11805, 2023.</li>
+<li id="ref9">OpenAI, "GPT-4o System Card," 2024. arXiv:2410.21276.</li>
+<li id="ref10">K. Claessen and J. Hughes, "QuickCheck: A Lightweight Tool for Random Testing of
+Haskell Programs," in <em>Proc. ACM SIGPLAN Int. Conf. Functional Programming (ICFP)</em>, 2000, pp.
+268&ndash;279.</li>
+<li id="ref11">J. Yang, K. Zhou, Y. Li, and Z. Liu, "Generalized Out-of-Distribution Detection: A
+Survey," arXiv preprint arXiv:2110.11334, 2021.</li>
+<li id="ref12">vikhyatk, "moondream2" (model card), Hugging Face, 2025. https://huggingface.co/vikhyatk/moondream2</li>
+</ol>
+</div>
+
+</body>
+</html>
