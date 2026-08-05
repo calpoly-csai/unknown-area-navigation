@@ -23,7 +23,8 @@
           <div class="is-size-5 publication-authors">
             <span class="author-block">
               <a href="https://www.linkedin.com/in/zgoldwyn/">Zach Goldwyn</a>,</span>
-            <span class="author-block">Ivan Torriani,</span>
+            <span class="author-block">
+              <a href="https://www.linkedin.com/in/ivan-torriani-3b875a331/">Ivan Torriani</a>,</span>
             <span class="author-block">
               <a href="https://www.linkedin.com/in/ceyanna-badyal/">Ceyanna Badyal</a>,</span>
             <span class="author-block">
@@ -161,6 +162,14 @@
                 their class name, and detections below it are flagged
                 <code>UNKNOWN OBJECT</code>. Confidence acts as a proxy for how well the object
                 matches the model's training distribution.
+                <pre><code>for box in boxes:
+    conf = float(box.conf[0])
+    label = result.names[int(box.cls[0])]
+    if conf * 100 > confidencebenchmark:
+        # draw label + confidence in blue
+    if conf * 100 < confidencebenchmark:
+        # draw "UNKNOWN OBJECT" in red</code></pre>
+                <p class="source-link">src/unknown_object_detection/ObjectRecognition.py</p>
               </div>
             </div>
           </div>
@@ -251,7 +260,11 @@
         results in <strong>2–5 seconds</strong> with no local hardware requirement, at the cost
         of a network dependency. Shared utilities (traversability parsing, output formatting,
         file-path construction) were validated with five correctness properties via
-        property-based testing (Hypothesis, 100 examples each).
+        property-based testing (Hypothesis, 100 examples each) — for example:
+        <pre><code>def parse_traversability(response: str) -> bool:
+    """Returns True iff the response starts with 'yes' (case-insensitive)."""
+    return response.strip().lower().startswith("yes")</code></pre>
+        <p class="source-link">src/multimodal_interpretation/helpers.py</p>
       </div>
       <div class="notification is-light content">
         <strong>Limitations:</strong>
@@ -289,6 +302,20 @@
             <tr><td>No tag detected</td><td>No Tag Detected</td></tr>
           </tbody>
         </table>
+      </div>
+      <div class="content">
+        <pre><code>if tag.pose_t[0] < -0.075:      # Tag is to the left
+    command = "Move Left"
+elif tag.pose_t[0] > 0.075:     # Tag is to the right
+    command = "Move Right"
+elif tag.pose_t[2] > 0.1:       # Tag is far
+    command = "Move Forward"
+elif tag.pose_t[2] <= 0.1:      # Tag is close
+    command = "Stop"
+
+if len(tags) == 0:
+    command = "No Tag Detected"</code></pre>
+        <p class="source-link">src/navigation/cvAprilTag.py</p>
       </div>
       <div class="notification is-light content">
         <strong>Limitations:</strong>
