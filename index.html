@@ -9,6 +9,7 @@
   <link rel="stylesheet" href="assets/css/bulma.min.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link rel="stylesheet" href="assets/css/nerfies.css">
+  <link rel="stylesheet" href="assets/css/portfolio.css">
 </head>
 <body>
 
@@ -17,17 +18,22 @@
     <div class="container is-max-desktop">
       <div class="columns is-centered">
         <div class="column has-text-centered">
+          <img src="assets/images/logo.png" alt="CSAI Research Team logo" width="72" height="72" style="margin-bottom: 1rem;">
           <h1 class="title is-1 publication-title">Unknown Area Navigation</h1>
           <div class="is-size-5 publication-authors">
-            <span class="author-block">Zach Goldwyn,</span>
+            <span class="author-block">
+              <a href="https://www.linkedin.com/in/zgoldwyn/">Zach Goldwyn</a>,</span>
             <span class="author-block">Ivan Torriani,</span>
-            <span class="author-block">Ceyanna Badyal,</span>
-            <span class="author-block">Saurish Sauman,</span>
-            <span class="author-block">Vinayak Kohil</span>
+            <span class="author-block">
+              <a href="https://www.linkedin.com/in/ceyanna-badyal/">Ceyanna Badyal</a>,</span>
+            <span class="author-block">
+              <a href="https://www.linkedin.com/in/saurish-suman/">Saurish Sauman</a>,</span>
+            <span class="author-block">
+              <a href="https://www.linkedin.com/in/vinayak-kohli/">Vinayak Kohil</a></span>
           </div>
 
           <div class="is-size-5 publication-authors">
-            <span class="author-block">CSAI Research Team, California Polytechnic University San Luis Obispo</span>
+            <span class="author-block"><a href="https://github.com/calpoly-csai">CSAI Research Team</a>, California Polytechnic University San Luis Obispo</span>
           </div>
 
           <div class="column has-text-centered">
@@ -58,6 +64,448 @@
     </div>
   </div>
 </section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Abstract</h2>
+    <div class="content">
+      <p>
+        Autonomous navigation systems trained on fixed datasets struggle to generalize when
+        deployed in unfamiliar environments. A model trained on high-infrastructure urban
+        settings may fail to correctly interpret a rural tractor, a costumed pedestrian, or an
+        unusual roadside obstacle — not because the model is poorly designed, but because the
+        object or scene lies outside its training distribution. Rather than attempting to
+        retrain or replace existing navigation systems, this work explores a supplementary
+        pipeline that can be layered on top of them to handle out-of-distribution inputs.
+      </p>
+      <p>
+        The pipeline operates in two stages. The first stage, <strong>unknown object
+        detection</strong>, addresses the problem of a model encountering objects it cannot
+        confidently classify. Three approaches were implemented and evaluated on live webcam
+        input: a confidence-thresholded YOLO-World detector that flags low-confidence
+        predictions as unknown, a dual-model consensus pipeline pairing a class-agnostic
+        detector (NanoOWL) with YOLO-World to identify objects that are detected but cannot be
+        matched to a known class, and a closed-vocabulary YOLO baseline that illustrates the
+        core limitation motivating the other approaches. The second stage, <strong>multimodal
+        scene interpretation</strong>, addresses the downstream question of what to do once an
+        unknown or ambiguous scene is detected. A suite of vision-language models (VLMs) was
+        evaluated on their ability to produce a natural-language scene description and a
+        binary traversability judgment from a single image. Models evaluated include local
+        VLMs run on-device (Qwen2-VL, LLaVA-1.5, Moondream2, InternVL2-2B) and cloud API
+        approaches (GPT-4o-mini, Gemini 2.0 Flash Lite). Local models exhibited inference
+        times of 10–30+ minutes per image on CPU, making them impractical for real-time
+        deployment in their current form. Cloud API models returned results in 2–5 seconds
+        with no local hardware requirements, demonstrating substantially greater feasibility
+        for near-term prototyping.
+      </p>
+      <p>
+        Shared utilities across the VLM implementations were validated using property-based
+        testing with the Hypothesis library, ensuring consistent traversability parsing, output
+        formatting, and file path construction across all model backends. Taken together, the
+        two subsystems form a modular, model-agnostic pipeline that can flag uncertainty in
+        perception and provide contextual scene understanding — two capabilities that are
+        largely absent from standard autonomous navigation stacks when operating outside their
+        training domain.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">How It Works</h2>
+    <div class="figure-block">
+      <img src="assets/images/charts/pipeline-diagram.png"
+           alt="Pipeline architecture diagram: Capture, Unknown Object Detection, Persistence Gate, Multimodal Query, Navigation, Display, looping back to Capture">
+      <figcaption>
+        The pipeline runs continuously on live webcam frames. An unknown detection must persist
+        for several consecutive frames before it is treated as real and triggers a multimodal
+        query; navigation then gates forward motion on both the traversability verdict and the
+        AprilTag's distance.
+      </figcaption>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Research Subsystems</h2>
+
+    <div class="subsystem-block">
+      <h3 class="title is-4">Unknown Object Detection</h3>
+      <p class="subsystem-owner">Ceyanna Badyal, Zach Goldwyn</p>
+      <div class="content">
+        <p>
+          Standard object detection models operate on closed-vocabulary datasets. When
+          presented with an object outside their training distribution, these models either
+          misclassify it or assign low confidence to their best guess. Four approaches were
+          implemented, ranging from a closed-vocabulary baseline to a dual-model consensus
+          pipeline, each evaluated qualitatively by presenting niche or unusual objects to a
+          live webcam.
+        </p>
+      </div>
+      <div class="columns is-multiline">
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content">
+              <p class="title is-6">Confidence-Thresholded YOLO-World</p>
+              <div class="content">
+                YOLOv8s-worldv2, an open-vocabulary detector, runs on live webcam video with a
+                50% confidence threshold: detections at or above threshold are labeled with
+                their class name, and detections below it are flagged
+                <code>UNKNOWN OBJECT</code>. Confidence acts as a proxy for how well the object
+                matches the model's training distribution.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content">
+              <p class="title is-6">Dual-Model Consensus (NanoOWL + YOLO-World)</p>
+              <div class="content">
+                A class-agnostic detector (NanoOWL) flags that <em>something</em> is present;
+                YOLO-World attempts to classify it against a fixed 12-class candidate list.
+                IoU-matched detections are scored as <strong>Matched</strong>,
+                <strong>Weak Match</strong>, or <strong>Unknown</strong> depending on whether a
+                match was found and YOLO-World's confidence in it.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content">
+              <p class="title is-6">Baseline Closed-Vocabulary YOLO</p>
+              <div class="content">
+                A standard YOLOv11n model with no unknown-object logic — every detection is
+                forced into the closed class set. This baseline illustrates the core limitation
+                motivating the other three approaches: no mechanism exists to express
+                uncertainty about an out-of-distribution object.
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="column is-half">
+          <div class="card">
+            <div class="card-content">
+              <p class="title is-6">Colour Histogram Change Detection</p>
+              <div class="content">
+                A lightweight, model-free pre-filter: consecutive frames are compared via
+                8×8×8-bin BGR colour histograms and the Bhattacharyya distance. A distance
+                above 0.1 flags <code>Color Changed</code>. It detects <em>that</em> the scene
+                changed, not <em>what</em> changed, and was evaluated as an early exploratory
+                prototype — no live demo capture exists for this approach beyond its written
+                description.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notification is-light content">
+        <strong>Limitations:</strong>
+        <ul>
+          <li>Evaluated qualitatively; no standardized benchmark dataset was used.</li>
+          <li>NanoOWL was run on CPU, significantly slower than the intended NVIDIA edge hardware target.</li>
+          <li>The YOLO-World candidate class list (12 classes) was manually curated and may not generalize to all environments.</li>
+          <li>A planned custom class-agnostic model, trained on researcher-collected data, was designed but not completed in this phase.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="subsystem-block">
+      <h3 class="title is-4">Multimodal Scene Interpretation</h3>
+      <p class="subsystem-owner">Vinayak Kohil</p>
+      <div class="content">
+        <p>
+          Even when an object is flagged unknown, the agent still needs to decide whether to
+          proceed. This subsystem evaluates whether vision-language models (VLMs) can supply
+          that judgment — a natural-language scene description plus a binary traversability
+          verdict — from a single image.
+        </p>
+      </div>
+      <div class="table-container">
+        <table class="table is-bordered is-striped is-fullwidth">
+          <thead>
+            <tr><th>Model</th><th>Type</th><th>Parameters</th><th>Latency</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Qwen2-VL</td><td>Local (Hugging Face)</td><td>~7B</td><td>10–30+ min/image (CPU)</td></tr>
+            <tr><td>LLaVA-1.5</td><td>Local (Hugging Face)</td><td>~7B</td><td>10–30+ min/image (CPU)</td></tr>
+            <tr><td>Moondream2</td><td>Local (Hugging Face)</td><td>~1.9B</td><td>10–30+ min/image (CPU)</td></tr>
+            <tr><td>InternVL2-2B</td><td>Local (Hugging Face)</td><td>~2B</td><td>10–30+ min/image (CPU)</td></tr>
+            <tr><td>GPT-4o-mini</td><td>Cloud API (OpenAI)</td><td>—</td><td>2–5s/image</td></tr>
+            <tr><td>Gemini 2.0 Flash Lite</td><td>Cloud API (Google)</td><td>—</td><td>2–5s/image</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notification is-light content">
+        All four local VLMs exhibited inference times of <strong>10–30+ minutes per image</strong>
+        on CPU — impractical for real-time deployment in their current form. Cloud APIs returned
+        results in <strong>2–5 seconds</strong> with no local hardware requirement, at the cost
+        of a network dependency. Shared utilities (traversability parsing, output formatting,
+        file-path construction) were validated with five correctness properties via
+        property-based testing (Hypothesis, 100 examples each).
+      </div>
+      <div class="notification is-light content">
+        <strong>Limitations:</strong>
+        <ul>
+          <li>No ground-truth traversability labels; assessment quality was evaluated qualitatively only.</li>
+          <li>CPU-only inference for local models; results may differ substantially with GPU acceleration.</li>
+          <li>Traversability is assessed on individual static frames with no temporal context, depth information, or sensor fusion.</li>
+          <li>The test images used are researcher-supplied and do not constitute a representative benchmark.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="subsystem-block">
+      <h3 class="title is-4">Navigation</h3>
+      <p class="subsystem-owner">Saurish Sauman</p>
+      <div class="content">
+        <p>
+          Once an unknown object or non-traversable scene has been identified, the agent needs
+          a reliable way to reorient itself using a known landmark. This subsystem uses
+          <strong>AprilTag fiducial markers</strong>: a camera detects a printed tag, estimates
+          its 3D pose using calibrated camera intrinsics (recovered via a checkerboard
+          calibration procedure), and issues a directional movement command based on that pose.
+        </p>
+      </div>
+      <div class="table-container">
+        <table class="table is-bordered is-striped is-fullwidth">
+          <thead>
+            <tr><th>Condition</th><th>Command</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Lateral offset &lt; −7.5 cm</td><td>Move Left</td></tr>
+            <tr><td>Lateral offset &gt; +7.5 cm</td><td>Move Right</td></tr>
+            <tr><td>Depth &gt; 10 cm</td><td>Move Forward</td></tr>
+            <tr><td>Depth ≤ 10 cm</td><td>Stop</td></tr>
+            <tr><td>No tag detected</td><td>No Tag Detected</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="notification is-light content">
+        <strong>Limitations:</strong>
+        <ul>
+          <li>A single tag is assumed per scene; multi-tag disambiguation was not implemented.</li>
+          <li>Movement commands are discrete and threshold-based; no continuous control signal or PID controller was implemented.</li>
+          <li>Pose estimation accuracy degrades at steep viewing angles and long distances.</li>
+          <li>No temporal smoothing — rapid tag movement can cause flickering command output.</li>
+          <li>Calibration is camera-specific and must be recollected for a different camera or resolution.</li>
+          <li>No integration with the unknown object detection or multimodal interpretation subsystems was implemented in this phase.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Results</h2>
+
+    <h3 class="title is-4">Detection Trials</h3>
+    <div class="content">
+      <p>
+        Each detection approach was evaluated with the same protocol: five known objects and
+        five unknown objects were each presented to the camera for three trials (30 trials
+        total per approach), and every trial was scored as a true positive, true negative,
+        false positive, or false negative against ground truth.
+      </p>
+    </div>
+    <div class="figure-block">
+      <img src="assets/images/charts/detection-trials.png"
+           alt="Grouped bar chart of accuracy, precision, recall, and F1 for three detection approaches across 30 trials each">
+    </div>
+    <div class="table-container">
+      <table class="table is-bordered is-striped is-fullwidth">
+        <thead>
+          <tr>
+            <th>Approach</th><th>TP</th><th>TN</th><th>FP</th><th>FN</th>
+            <th>Accuracy</th><th>Precision</th><th>Recall</th><th>F1</th><th>Source</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Confidence-Thresholded YOLO-World</td>
+            <td>14</td><td>14</td><td>1</td><td>1</td>
+            <td>93.3%</td><td>93.3%</td><td>93.3%</td><td>93.3%</td>
+            <td><a href="src/experiments/experimentsresults/experiments1.pdf">PDF</a></td>
+          </tr>
+          <tr>
+            <td>Dual-Model Consensus (NanoOWL + YOLO-World)</td>
+            <td>11</td><td>13</td><td>2</td><td>4</td>
+            <td>80.0%</td><td>84.6%</td><td>73.3%</td><td>78.6%</td>
+            <td><a href="src/experiments/experimentsresults/experiments2.pdf">PDF</a></td>
+          </tr>
+          <tr>
+            <td>Colour Histogram Change Detection</td>
+            <td>2</td><td>14</td><td>1</td><td>13</td>
+            <td>53.3%</td><td>66.7%</td><td>13.3%</td><td>22.2%</td>
+            <td><a href="src/experiments/experimentsresults/experiments3.pdf">PDF</a></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="table-note" style="color:#7a7a7a; font-size:0.85rem;">
+      For navigation safety, recall matters more than precision — missing a real unknown object
+      (a false negative) is more dangerous than a false alarm. The colour histogram approach's
+      low recall reflects that it detects scene-level change rather than object-level presence,
+      as noted in its write-up above.
+    </p>
+
+    <h3 class="title is-4">Multimodal Traversability Comparison</h3>
+    <div class="content">
+      <p>
+        A separate experiment compared two cloud VLMs — Gemini 2.5 Flash Lite and GPT-4.1-nano
+        — on their ability to judge road traversability across 9 test images, using the same
+        prompt and measuring wall-clock latency per call.
+      </p>
+    </div>
+    <div class="figure-block">
+      <img src="assets/images/charts/vlm-comparison.png"
+           alt="Bar charts comparing Gemini and OpenAI traversability accuracy and mean API latency">
+    </div>
+    <div class="table-container">
+      <table class="table is-bordered is-striped is-fullwidth">
+        <thead>
+          <tr><th>Image</th><th>Ground Truth</th><th>Gemini</th><th>OpenAI</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>test1</td><td>false</td><td>✗ true</td><td>✓ false</td></tr>
+          <tr><td>test2</td><td>false</td><td>✓ false</td><td>✓ false</td></tr>
+          <tr><td>test3</td><td>true</td><td>✓ true</td><td>✓ true</td></tr>
+          <tr><td>test5</td><td>false</td><td>✓ false</td><td>✓ false</td></tr>
+          <tr><td>test6</td><td>false</td><td>✓ false</td><td>✓ false</td></tr>
+          <tr><td>test7</td><td>true</td><td>✗ false</td><td>✓ true</td></tr>
+          <tr><td>test8</td><td>false</td><td>✓ false</td><td>✓ false</td></tr>
+          <tr><td>test9</td><td>true</td><td>✓ true</td><td>✗ false</td></tr>
+          <tr><td>test10</td><td>false</td><td>✓ false</td><td>✓ false</td></tr>
+          <tr><td><strong>Correct</strong></td><td>—</td><td><strong>7 / 9</strong></td><td><strong>8 / 9</strong></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="content">
+      <p>
+        <strong>Gemini errors:</strong> On test1, a person in a morph suit next to a novelty
+        pedestrian sign was judged traversable — the model failed to treat the pedestrian-adjacent
+        hazard as a reason to stop. On test7, a graffiti-covered but structurally sound bridge was
+        judged non-traversable, over-indexing on visual degradation as a proxy for structural
+        unsafety.
+      </p>
+      <p>
+        <strong>OpenAI errors:</strong> On test9, a woman hitchhiking on the roadside with a clear
+        road ahead was judged non-traversable, citing her proximity to the road as a hazard even
+        though the road itself was clear.
+      </p>
+      <p>
+        Given near-identical latency, accuracy is the primary differentiator for this use case,
+        favouring GPT-4.1-nano for traversability-assessment deployment.
+      </p>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Tech Stack</h2>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Core CV</span>
+      <div class="tags">
+        <span class="tag is-link is-light">OpenCV</span>
+        <span class="tag is-link is-light">NumPy</span>
+        <span class="tag is-link is-light">Pillow</span>
+      </div>
+    </div>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Navigation</span>
+      <div class="tags">
+        <span class="tag is-link is-light">pupil-apriltags</span>
+      </div>
+    </div>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Object Detection / ML</span>
+      <div class="tags">
+        <span class="tag is-link is-light">Ultralytics (YOLO)</span>
+        <span class="tag is-link is-light">PyTorch</span>
+        <span class="tag is-link is-light">torchvision</span>
+        <span class="tag is-link is-light">Transformers</span>
+      </div>
+    </div>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Cloud APIs</span>
+      <div class="tags">
+        <span class="tag is-link is-light">Google Gemini API</span>
+        <span class="tag is-link is-light">OpenAI API</span>
+      </div>
+    </div>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Utilities</span>
+      <div class="tags">
+        <span class="tag is-link is-light">python-dotenv</span>
+      </div>
+    </div>
+    <div class="tech-stack-row">
+      <span class="tech-stack-label">Testing</span>
+      <div class="tags">
+        <span class="tag is-link is-light">pytest</span>
+        <span class="tag is-link is-light">Hypothesis</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Team</h2>
+    <div class="team-list">
+      <div class="team-row"><span>Zach Goldwyn</span><span class="team-role">Unknown Object Detection</span></div>
+      <div class="team-row"><span>Ceyanna Badyal</span><span class="team-role">Unknown Object Detection</span></div>
+      <div class="team-row"><span>Vinayak Kohil</span><span class="team-role">Multimodal Scene Interpretation</span></div>
+      <div class="team-row"><span>Saurish Sauman</span><span class="team-role">Navigation &amp; AprilTag</span></div>
+      <div class="team-row"><span>Ivan Torriani</span><span class="team-role">Product Manager</span></div>
+    </div>
+    <p class="has-text-centered" style="color:#7a7a7a; font-size:0.9rem; margin-top:1.25rem;">
+      All team members contributed to experiments and testing.
+    </p>
+  </div>
+</section>
+
+<hr class="section-divider">
+
+<section class="section">
+  <div class="container is-max-desktop">
+    <h2 class="title is-3 has-text-centered">Documentation &amp; Resources</h2>
+    <div class="content resource-list">
+      <p>This project has no published paper — the primary write-ups and raw data are linked directly below.</p>
+      <ul>
+        <li><a href="https://github.com/calpoly-csai/unknown-area-navigation/blob/main/docs/abstract.md">Abstract</a></li>
+        <li><a href="https://github.com/calpoly-csai/unknown-area-navigation/blob/main/docs/methods/unknown_object_detection.md">Methods — Unknown Object Detection</a></li>
+        <li><a href="https://github.com/calpoly-csai/unknown-area-navigation/blob/main/docs/methods/multimodal_interpretation.md">Methods — Multimodal Scene Interpretation</a></li>
+        <li><a href="https://github.com/calpoly-csai/unknown-area-navigation/blob/main/docs/methods/navigation.md">Methods — Navigation</a></li>
+        <li><a href="https://github.com/calpoly-csai/unknown-area-navigation/blob/main/docs/methods/multimodal_interpretation_experiment.md">Experiment — Gemini vs. OpenAI</a></li>
+        <li><a href="src/experiments/experimentsresults/experiments1.pdf">Raw trial data — Confidence-Thresholded YOLO-World (PDF)</a></li>
+        <li><a href="src/experiments/experimentsresults/experiments2.pdf">Raw trial data — Dual-Model Consensus (PDF)</a></li>
+        <li><a href="src/experiments/experimentsresults/experiments3.pdf">Raw trial data — Colour Histogram Change Detection (PDF)</a></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<footer class="simple-footer">
+  <p>CSAI Research Team · California Polytechnic University San Luis Obispo · <a href="https://github.com/calpoly-csai">GitHub</a></p>
+</footer>
 
 </body>
 </html>

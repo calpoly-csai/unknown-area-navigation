@@ -1,0 +1,103 @@
+/* portfolio.css — additions to Bulma + nerfies.css for the research portfolio sections */
+
+.section-divider {
+  border: none;
+  border-top: 1px solid #ececec;
+  margin: 0;
+}
+
+.figure-block {
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.figure-block img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ececec;
+  border-radius: 8px;
+}
+
+.figure-block figcaption {
+  margin-top: 0.75rem;
+  color: #7a7a7a;
+  font-size: 0.9rem;
+}
+
+.subsystem-block {
+  margin-bottom: 3rem;
+}
+
+.subsystem-block:last-child {
+  margin-bottom: 0;
+}
+
+.subsystem-owner {
+  color: #7a7a7a;
+  font-size: 0.95rem;
+  margin-top: -0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.tech-stack-row {
+  margin-bottom: 1rem;
+}
+
+.tech-stack-row .tech-stack-label {
+  display: block;
+  font-weight: 600;
+  color: #4a4a4a;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+}
+
+.team-list {
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.team-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid #ececec;
+}
+
+.team-row:last-of-type {
+  border-bottom: none;
+}
+
+.team-role {
+  color: #7a7a7a;
+  font-size: 0.9rem;
+  text-align: right;
+}
+
+.resource-list a {
+  font-weight: 500;
+}
+
+.source-link {
+  font-size: 0.85rem;
+  color: #7a7a7a;
+}
+
+.source-link a {
+  color: #7a7a7a;
+  text-decoration: underline;
+}
+
+.simple-footer {
+  background: #fafafa;
+  border-top: 1px solid #ececec;
+  padding: 2rem 1.5rem;
+  text-align: center;
+  color: #7a7a7a;
+  font-size: 0.9rem;
+  margin-top: 2rem;
+}
+
+.simple-footer a {
+  color: hsl(204, 86%, 53%);
+}
