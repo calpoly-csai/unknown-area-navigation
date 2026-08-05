@@ -1,131 +1,63 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Unknown Area Navigation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/css/style.css">
+
+  <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro" rel="stylesheet">
+  <link rel="stylesheet" href="assets/css/bulma.min.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/nerfies.css">
 </head>
 <body>
 
-  <nav class="site-nav">
-    <a href="index.html" class="nav-active">Home</a>
-    <a href="pages/unknown-object-detection.html">Unknown Object Detection</a>
-    <a href="pages/multimodal-interpretation.html">Multimodal Interpretation</a>
-    <a href="pages/navigation.html">Navigation</a>
-    <a href="pages/experiments.html">Experiments</a>
-  </nav>
+<section class="hero">
+  <div class="hero-body">
+    <div class="container is-max-desktop">
+      <div class="columns is-centered">
+        <div class="column has-text-centered">
+          <h1 class="title is-1 publication-title">Unknown Area Navigation</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">Zach Goldwyn,</span>
+            <span class="author-block">Ivan Torriani,</span>
+            <span class="author-block">Ceyanna Badyal,</span>
+            <span class="author-block">Saurish Sauman,</span>
+            <span class="author-block">Vinayak Kohil</span>
+          </div>
 
-  <main class="page-content">
-    <h1>Unknown Area Navigation</h1>
+          <div class="is-size-5 publication-authors">
+            <span class="author-block">CSAI Research Team, California Polytechnic University San Luis Obispo</span>
+          </div>
 
-    <section id="abstract">
-      <h2>Abstract</h2>
-      <p>
-        Autonomous navigation systems trained on fixed datasets struggle to generalize when deployed
-        in unfamiliar environments. A model trained on high-infrastructure urban settings may fail to
-        correctly interpret a rural tractor, a costumed pedestrian, or an unusual roadside obstacle —
-        not because the model is poorly designed, but because the object or scene lies outside its
-        training distribution. Rather than attempting to retrain or replace existing navigation
-        systems, this work explores a supplementary pipeline that can be layered on top of them to
-        handle out-of-distribution inputs.
-      </p>
-      <p>
-        The pipeline operates in two stages. The first stage, <strong>unknown object detection</strong>,
-        addresses the problem of a model encountering objects it cannot confidently classify. Three
-        approaches were implemented and evaluated on live webcam input: a confidence-thresholded
-        YOLO-World detector that flags low-confidence predictions as unknown, a dual-model consensus
-        pipeline pairing a class-agnostic detector (NanoOWL) with YOLO-World to identify objects
-        that are detected but cannot be matched to a known class, and a closed-vocabulary YOLO
-        baseline that illustrates the core limitation motivating the other approaches. The second
-        stage, <strong>multimodal scene interpretation</strong>, addresses the downstream question of
-        what to do once an unknown or ambiguous scene is detected. A suite of vision-language models
-        (VLMs) was evaluated on their ability to produce a natural-language scene description and a
-        binary traversability judgment from a single image. Models evaluated include local VLMs run
-        on-device (Qwen2-VL, LLaVA-1.5, Moondream2, InternVL2-2B) and cloud API approaches
-        (GPT-4o-mini, Gemini 2.0 Flash Lite). Local models exhibited inference times of 10–30+
-        minutes per image on CPU, making them impractical for real-time deployment in their current
-        form. Cloud API models returned results in 2–5 seconds with no local hardware requirements,
-        demonstrating substantially greater feasibility for near-term prototyping.
-      </p>
-      <p>
-        Shared utilities across the VLM implementations were validated using property-based testing
-        with the Hypothesis library, ensuring consistent traversability parsing, output formatting,
-        and file path construction across all model backends. Taken together, the two subsystems form
-        a modular, model-agnostic pipeline that can flag uncertainty in perception and provide
-        contextual scene understanding — two capabilities that are largely absent from standard
-        autonomous navigation stacks when operating outside their training domain.
-      </p>
-    </section>
-
-    <section id="summary">
-      <h2>Project Summary</h2>
-      <p>
-        Deep learning models trained on fixed datasets fail to generalise when deployed in
-        out-of-distribution environments. A detector trained on standard urban scenes may silently
-        mislabel — or entirely miss — objects that fall outside its training vocabulary, such as
-        unusual obstacles, costumed pedestrians, or rural machinery. This failure mode is
-        particularly dangerous in autonomous navigation, where perception errors propagate directly
-        into movement decisions. This project develops a supplementary pipeline designed to sit
-        alongside existing navigation stacks and address that limitation. Rather than retraining
-        or replacing the base model, the pipeline adds two capabilities: flagging objects the
-        model cannot confidently classify, and querying a vision-language model to assess scene
-        traversability when uncertainty is detected. The result is a modular, model-agnostic layer
-        that extends standard navigation systems to handle inputs outside their training domain.
-      </p>
-    </section>
-
-    <section id="subsystems">
-      <h2>Research Subsystems</h2>
-      <div class="subsystem-grid">
-
-        <div class="subsystem-card">
-          <h3>Unknown Object Detection</h3>
-          <p>
-            Detects objects that fall outside a model's training distribution by flagging
-            low-confidence predictions and using dual-model consensus to identify unclassifiable
-            detections.
-          </p>
-          <a href="pages/unknown-object-detection.html">View subsystem →</a>
+          <div class="column has-text-centered">
+            <div class="publication-links">
+              <span class="link-block">
+                <a href="https://github.com/calpoly-csai/unknown-area-navigation"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fab fa-github"></i>
+                  </span>
+                  <span>Code</span>
+                </a>
+              </span>
+            </div>
+          </div>
         </div>
-
-        <div class="subsystem-card">
-          <h3>Multimodal Scene Interpretation</h3>
-          <p>
-            Uses vision-language models to produce a natural-language scene description and a
-            binary traversability judgment from a single image when unknown objects are detected.
-          </p>
-          <a href="pages/multimodal-interpretation.html">View subsystem →</a>
-        </div>
-
-        <div class="subsystem-card">
-          <h3>AprilTag-Based Navigation</h3>
-          <p>
-            Estimates the 3D pose of an AprilTag in a live camera feed using
-            <code>cv2.solvePnP</code> and issues directional movement commands based on lateral
-            offset and distance thresholds.
-          </p>
-          <a href="pages/navigation.html">View subsystem →</a>
-        </div>
-
       </div>
-    </section>
+    </div>
+  </div>
+</section>
 
-    <section id="links">
-      <h2>Repository</h2>
-      <p>
-        <a href="https://github.com/ivantorriani/unknown-area-navigation">View on GitHub</a>
-      </p>
-    </section>
-
-  </main>
-
-  <footer class="site-footer">
-    <p>Unknown Area Navigation · <a href="https://github.com/ivantorriani/unknown-area-navigation">GitHub</a></p>
-  </footer>
+<section class="hero teaser">
+  <div class="container is-max-desktop">
+    <div class="hero-body">
+      <video id="teaser" autoplay muted loop playsinline height="100%">
+        <source src="src/demo/demo.mp4" type="video/mp4">
+      </video>
+    </div>
+  </div>
+</section>
 
 </body>
 </html>
