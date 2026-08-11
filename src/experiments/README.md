@@ -142,6 +142,34 @@ From these, compute:
 
 For navigation safety, **recall matters more than precision** — missing a real unknown (FN) is more dangerous than a false alarm (FP).
 
+### Experiment 2 Binary Scoring Rule
+
+`experiment2.py` uses a three-state detector internally:
+
+- **matched** — NanoOWL and YOLO-World agree with sufficient confidence
+- **weak match** — YOLO-World overlaps the NanoOWL detection but with low confidence
+- **unknown** — NanoOWL detects an object and YOLO-World finds no sufficient match
+
+For TP / TN / FP / FN scoring, the detector is reduced to a binary decision as follows:
+
+- **Known**: `matched`
+- **Flagged unknown**: `weak match` or `unknown`
+
+This default prioritizes recall, which is consistent with the safety goal above.
+
+### Experiment 2 Key Thresholds
+
+`experiment2.py` uses the following Stage 2 and Stage 3 thresholds:
+
+| Parameter | Value | Description |
+|---------|-------|-------------|
+| `NANO_OWL_MIN_SCORE` | `0.18` | Ignore NanoOWL detections below this score as noise |
+| `IOU_MATCH_THRESHOLD` | `0.20` | Minimum overlap required to treat NanoOWL and YOLO-World as the same object |
+| `YOLO_WORLD_LOW_CONF_THRESHOLD` | `0.35` | Below this, a matched YOLO-World detection becomes a weak match |
+| `UNKNOWN_PERSIST_FRAMES` | `8` | Consecutive frames required before a hard unknown triggers Gemini |
+| `WEAK_PERSIST_FRAMES` | `15` | Consecutive frames required before a weak match triggers Gemini |
+| `GEMINI_COOLDOWN_SECONDS` | `5.0` | Minimum time between Gemini API calls |
+
 ---
 
 ## Experiments
@@ -149,6 +177,7 @@ For navigation safety, **recall matters more than precision** — missing a real
 | Experiment | Detection Method | Multimodal Model |
 |------------|-----------------|-----------------|
 | `experiment1.py` | YOLOv8s-worldv2 low-confidence threshold | Gemini 2.5 Flash Lite |
+| `experiment2.py` | NanoOWL / YOLO-World consensus | Gemini 2.5 Flash Lite |
 
 ---
 
